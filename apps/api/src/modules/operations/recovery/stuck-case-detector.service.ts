@@ -22,7 +22,9 @@ export const DEFAULT_STUCK_THRESHOLDS: StuckThresholdConfig = {
 
 @Injectable()
 export class StuckCaseDetectorService {
-  constructor(private readonly thresholds: StuckThresholdConfig = DEFAULT_STUCK_THRESHOLDS) {}
+  private readonly thresholds: StuckThresholdConfig = DEFAULT_STUCK_THRESHOLDS;
+
+  constructor() {}
 
   async detectStuckCases(): Promise<RecoveryCandidate[]> {
     const now = Date.now();

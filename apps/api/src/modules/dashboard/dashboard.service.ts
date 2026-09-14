@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { DashboardRepository } from './dashboard.repository';
+import { DashboardRepository } from './dashboard.repository.js';
 import type { DashboardSummary } from '@visaflow/shared-types';
 
 @Injectable()

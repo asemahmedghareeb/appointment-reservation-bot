@@ -1,10 +1,10 @@
 import { Injectable, NotFoundException, Logger } from '@nestjs/common';
-import { NotificationsRepository } from './notifications.repository';
-import { OperationsEventsService } from '../operations/operations-events.service';
+import { NotificationsRepository } from './notifications.repository.js';
+import { OperationsEventsService } from '../operations/operations-events.service.js';
 import { OperationsEventType, type PaginatedResult } from '@visaflow/shared-types';
-import { normalizePagination, createPaginatedResult } from '../../common/utils/pagination';
-import type { ListNotificationsQueryDto } from './dto/list-notifications-query.dto';
-import type { NotificationResponseDto } from './dto/notification-response.dto';
+import { normalizePagination, createPaginatedResult } from '../../common/utils/pagination.js';
+import type { ListNotificationsQueryDto } from './dto/list-notifications-query.dto.js';
+import type { NotificationResponseDto } from './dto/notification-response.dto.js';
 import type { Notification } from '@visaflow/database';
 
 @Injectable()

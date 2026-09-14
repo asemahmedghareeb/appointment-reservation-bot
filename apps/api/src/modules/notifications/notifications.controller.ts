@@ -9,9 +9,9 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import { NotificationsService } from './notifications.service';
-import { ListNotificationsQueryDto } from './dto/list-notifications-query.dto';
-import type { NotificationResponseDto } from './dto/notification-response.dto';
+import { NotificationsService } from './notifications.service.js';
+import { ListNotificationsQueryDto } from './dto/list-notifications-query.dto.js';
+import type { NotificationResponseDto } from './dto/notification-response.dto.js';
 import type { PaginatedResult } from '@visaflow/shared-types';
 
 @Controller('notifications')

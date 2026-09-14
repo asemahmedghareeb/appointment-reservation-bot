@@ -9,10 +9,10 @@ import {
 import {
   VfsRemoteStateInspector,
   VfsRemoteState,
+  type Page,
 } from '@visaflow/vfs-adapter';
 import type { WorkerRepository } from '../repositories/worker.repository.js';
 import type { AutomationSessionService } from '../services/automation-session.service.js';
-import type { Page } from 'playwright';
 
 export interface ReconcileResult {
   reconciled: boolean;
@@ -21,8 +21,6 @@ export interface ReconcileResult {
 }
 
 export class JobRecoveryService {
-  private readonly remoteInspector = new VfsRemoteStateInspector();
-
   constructor(
     private readonly repo: WorkerRepository,
     private readonly sessionService: AutomationSessionService,
@@ -36,9 +34,9 @@ export class JobRecoveryService {
     candidate: RecoveryCandidate,
     page: Page,
   ): Promise<ReconcileResult> {
-    const inspection = await this.remoteInspector.inspect(page);
+    const inspection = await VfsRemoteStateInspector.inspect(page);
 
-    switch (inspection.state) {
+    switch (inspection.remoteState) {
       case VfsRemoteState.CONFIRMED: {
         // If provider confirms booking, transition to CONFIRMED
         if (
@@ -53,8 +51,8 @@ export class JobRecoveryService {
             actorId: this.workerId,
             reason: 'Reconciled: Provider remote state shows confirmed booking',
             metadata: {
-              reconciledFrom: inspection.state,
-              details: inspection.details,
+              reconciledFrom: inspection.remoteState,
+              confirmationReference: inspection.confirmationReference,
             },
           });
           return {
@@ -75,7 +73,10 @@ export class JobRecoveryService {
             actorType: StateActorType.WORKER,
             actorId: this.workerId,
             reason: 'Reconciled: Remote state advanced to payment required',
-            metadata: { reconciledFrom: inspection.state },
+            metadata: {
+              reconciledFrom: inspection.remoteState,
+              paymentUrl: inspection.paymentUrl,
+            },
           });
           return {
             reconciled: true,
@@ -88,10 +89,7 @@ export class JobRecoveryService {
 
       case VfsRemoteState.SESSION_EXPIRED: {
         if (candidate.automationSessionId) {
-          await this.sessionService.recordFailure({
-            sessionId: candidate.automationSessionId,
-            errorMessage: 'Provider session expired during execution',
-          });
+          await this.sessionService.failSession(candidate.automationSessionId);
         }
         await this.repo.createNotification({
           userId: 'system',
@@ -129,7 +127,7 @@ export class JobRecoveryService {
     return {
       reconciled: false,
       actionTaken: RecoveryAction.MARK_NEEDS_ATTENTION,
-      details: `Cannot automatically reconcile state ${candidate.status} with provider state ${inspection.state}`,
+      details: `Cannot automatically reconcile state ${candidate.status} with provider state ${inspection.remoteState}`,
     };
   }
 
