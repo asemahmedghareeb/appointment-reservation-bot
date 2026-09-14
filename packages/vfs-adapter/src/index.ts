@@ -30,3 +30,5 @@ export * from './pages/applicant-details.page.js';
 export * from './pages/slot-selection.page.js';
 export * from './pages/payment.page.js';
 export * from './pages/confirmation.page.js';
+export * from './reliability/index.js';
+

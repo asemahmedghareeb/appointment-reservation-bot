@@ -10,6 +10,12 @@ import { VfsBrowserSessionManager, VfsProviderAdapter, createVfsConfig } from '@
 import { AvailabilityWorker } from './queues/availability.worker.js';
 import { BookingWorker } from './queues/booking.worker.js';
 import { SessionResumeWorker } from './queues/session-resume.worker.js';
+import { GracefulShutdownService } from './reliability/graceful-shutdown.service.js';
+import { SessionRecoveryService } from './reliability/session-recovery.service.js';
+import { ExpiredSessionCleanupJob } from './jobs/maintenance/expired-session-cleanup.job.js';
+import { PaymentExpiryJob } from './jobs/maintenance/payment-expiry.job.js';
+import { StuckCaseRecoveryJob } from './jobs/maintenance/stuck-case-recovery.job.js';
+import { workerLogger } from './observability/safe-logger.js';
 
 export class WorkerBootstrap {
   private config: WorkerConfig;
@@ -17,13 +23,16 @@ export class WorkerBootstrap {
   private bookingWorker?: BookingWorker;
   private sessionResumeWorker?: SessionResumeWorker;
   private sessionManager?: VfsBrowserSessionManager;
+  private shutdownService: GracefulShutdownService;
+  private maintenanceInterval?: NodeJS.Timeout;
 
   constructor(configOverride?: Partial<WorkerConfig>) {
     this.config = { ...loadWorkerConfig(), ...configOverride };
+    this.shutdownService = new GracefulShutdownService(this.config.workerShutdownTimeoutMs || 10000);
   }
 
   async start(): Promise<void> {
-    console.log(`[WORKER] Starting VisaFlow Worker [workerId=${this.config.workerId}]`);
+    workerLogger.info(`Starting VisaFlow Worker [workerId=${this.config.workerId}]`);
 
     const repo = new WorkerRepository();
     const credsService = new SecureProviderAccountService(repo);
@@ -31,6 +40,10 @@ export class WorkerBootstrap {
     const paymentHandoffService = new PaymentHandoffService(repo);
     const contextLoader = new ProviderContextLoaderService(repo);
     const adapterRegistry = new ProviderAdapterRegistryService();
+
+    // 1. Startup Orphan & Session Recovery
+    const sessionRecovery = new SessionRecoveryService(this.config.workerId);
+    await sessionRecovery.recoverStartupSessions();
 
     const vfsConfig = createVfsConfig({
       headless: this.config.vfsHeadless,
@@ -68,19 +81,38 @@ export class WorkerBootstrap {
       sessionService,
     );
 
+    // Register resources with GracefulShutdownService
+    this.shutdownService.register('availability-worker', () => this.availabilityWorker?.close() ?? Promise.resolve());
+    this.shutdownService.register('booking-worker', () => this.bookingWorker?.close() ?? Promise.resolve());
+    this.shutdownService.register('session-resume-worker', () => this.sessionResumeWorker?.close() ?? Promise.resolve());
+    this.shutdownService.register('browser-sessions', () => this.sessionManager?.closeAll() ?? Promise.resolve());
+
     this.availabilityWorker.start();
     this.bookingWorker.start();
     this.sessionResumeWorker.start();
 
-    console.log('[WORKER] BullMQ workers (availability-check, booking-execution, session-resume) active.');
+    // 2. Setup periodic maintenance cycle (every 60s)
+    const cleanupJob = new ExpiredSessionCleanupJob();
+    const paymentExpiryJob = new PaymentExpiryJob();
+    const stuckCaseJob = new StuckCaseRecoveryJob();
+
+    this.maintenanceInterval = setInterval(async () => {
+      try {
+        await cleanupJob.runCleanup();
+        await paymentExpiryJob.runPaymentExpiryCheck();
+        await stuckCaseJob.runRecoveryCycle();
+      } catch (err) {
+        workerLogger.error('Error running worker maintenance jobs:', err);
+      }
+    }, 60000);
+
+    workerLogger.info('BullMQ workers and maintenance jobs active.');
   }
 
-  async shutdown(): Promise<void> {
-    console.log('[WORKER] Shutting down workers and browser sessions...');
-    await this.availabilityWorker?.close();
-    await this.bookingWorker?.close();
-    await this.sessionResumeWorker?.close();
-    await this.sessionManager?.closeAll();
-    console.log('[WORKER] Clean shutdown complete.');
+  async shutdown(signal = 'SIGTERM'): Promise<void> {
+    if (this.maintenanceInterval) {
+      clearInterval(this.maintenanceInterval);
+    }
+    await this.shutdownService.shutdown(signal);
   }
 }

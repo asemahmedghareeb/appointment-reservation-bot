@@ -169,6 +169,7 @@ model BookingCase {
   notifications      Notification[]
 
   @@index([status])
+  @@index([status, updatedAt])
   @@index([providerRouteId])
   @@index([providerAccountId])
   @@index([createdAt])
@@ -290,6 +291,7 @@ model AutomationSession {
   @@index([bookingCaseId])
   @@index([workerId])
   @@index([status])
+  @@index([status, expiresAt])
 }
 
 enum PaymentHandoffStatus {
@@ -318,4 +320,5 @@ model PaymentHandoff {
   @@index([bookingCaseId])
   @@index([automationSessionId])
   @@index([status])
+  @@index([status, deadlineAt])
 }

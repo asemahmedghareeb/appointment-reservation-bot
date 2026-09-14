@@ -185,4 +185,22 @@ export class WorkerRepository {
       },
     });
   }
+
+  async createNotification(data: {
+    userId?: string | null | undefined;
+    bookingCaseId?: string | null | undefined;
+    type: string;
+    title: string;
+    message: string;
+  }) {
+    return prisma.notification.create({
+      data: {
+        userId: data.userId ?? null,
+        bookingCaseId: data.bookingCaseId ?? null,
+        type: data.type,
+        title: data.title,
+        message: data.message,
+      },
+    });
+  }
 }

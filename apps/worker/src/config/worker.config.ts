@@ -11,6 +11,8 @@ export interface WorkerConfig {
   vfsActionTimeoutMs: number;
   vfsAllowedOrigins: string[];
   sessionTtlMinutes: number;
+  workerShutdownTimeoutMs?: number;
+  productionSafeMode?: boolean;
 }
 
 export function loadWorkerConfig(): WorkerConfig {
@@ -30,7 +32,10 @@ export function loadWorkerConfig(): WorkerConfig {
     vfsActionTimeoutMs: env.VFS_ACTION_TIMEOUT_MS ?? 15000,
     vfsAllowedOrigins: allowedOrigins,
     sessionTtlMinutes: env.AUTOMATION_SESSION_TTL_MINUTES ?? 30,
+    workerShutdownTimeoutMs: 10000,
+    productionSafeMode: process.env.PRODUCTION_SAFE_MODE === 'true',
   };
+
 
 
 }

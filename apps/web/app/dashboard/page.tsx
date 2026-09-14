@@ -19,6 +19,11 @@ import {
   Sparkles,
   ArrowUpRight,
   ShieldAlert,
+  Server,
+  BarChart2,
+  CheckCircle2,
+  XCircle,
+  AlertCircle,
 } from 'lucide-react';
 
 export default function DashboardPage() {
@@ -27,6 +32,21 @@ export default function DashboardPage() {
     queryFn: () => api.dashboard.getSummary(),
     refetchInterval: 10000,
   });
+
+  const { data: providerHealthData } = useQuery({
+    queryKey: ['providers-health'],
+    queryFn: () => api.operations.getProvidersHealth(),
+    refetchInterval: 30000,
+  });
+
+  const { data: queueHealthData } = useQuery({
+    queryKey: ['queue-health'],
+    queryFn: () => api.operations.getQueueHealth(),
+    refetchInterval: 15000,
+  });
+
+  const vfsHealth = providerHealthData?.providers?.[0];
+  const queueHealth = queueHealthData?.queues ?? {};
 
   const counts = summary?.counts ?? {
     total: 0,
@@ -120,6 +140,105 @@ export default function DashboardPage() {
             <Activity size={14} />
             <span>Refresh</span>
           </button>
+        </div>
+
+        {/* Provider Health & Queue Metrics */}
+        <div
+          id="dashboard-infra-health"
+          style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}
+        >
+          {/* VFS Provider Health Pill */}
+          <div
+            className="glass-card"
+            style={{
+              padding: '10px 16px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              flex: '1 1 260px',
+            }}
+          >
+            <Server size={16} color="#94a3b8" />
+            <span style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 500 }}>VFS Provider</span>
+            {vfsHealth ? (
+              <span
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  fontSize: '0.8rem',
+                  fontWeight: 600,
+                  color:
+                    vfsHealth.status === 'HEALTHY'
+                      ? '#10b981'
+                      : vfsHealth.status === 'DEGRADED'
+                      ? '#f59e0b'
+                      : '#ef4444',
+                }}
+              >
+                {vfsHealth.status === 'HEALTHY' ? (
+                  <CheckCircle2 size={14} />
+                ) : vfsHealth.status === 'DEGRADED' ? (
+                  <AlertCircle size={14} />
+                ) : (
+                  <XCircle size={14} />
+                )}
+                {vfsHealth.status}
+                {vfsHealth.activeSessions > 0 && (
+                  <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 400 }}>
+                    ({vfsHealth.activeSessions} active)
+                  </span>
+                )}
+              </span>
+            ) : (
+              <span style={{ fontSize: '0.8rem', color: '#64748b' }}>—</span>
+            )}
+          </div>
+
+          {/* Queue Health Pill */}
+          <div
+            className="glass-card"
+            style={{
+              padding: '10px 16px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              flex: '1 1 500px',
+              flexWrap: 'wrap',
+            }}
+          >
+            <BarChart2 size={16} color="#94a3b8" />
+            <span style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 500 }}>Queue Depth</span>
+            {Object.entries(queueHealth).map(([name, info]: [string, any]) => (
+              <span
+                key={name}
+                id={`queue-depth-${name}`}
+                style={{
+                  fontSize: '0.78rem',
+                  color: info.failed > 10 ? '#ef4444' : '#64748b',
+                  backgroundColor: 'rgba(255,255,255,0.04)',
+                  padding: '2px 8px',
+                  borderRadius: '4px',
+                  display: 'flex',
+                  gap: '4px',
+                  alignItems: 'center',
+                }}
+              >
+                <span style={{ color: '#94a3b8' }}>{name.replace(/-/g, ' ')}:</span>
+                <span style={{ color: '#e2e8f0', fontWeight: 600 }}>
+                  {info.waiting}W / {info.active}A
+                </span>
+                {info.failed > 0 && (
+                  <span style={{ color: '#ef4444', fontWeight: 700 }}>
+                    {info.failed}F
+                  </span>
+                )}
+              </span>
+            ))}
+            {Object.keys(queueHealth).length === 0 && (
+              <span style={{ fontSize: '0.78rem', color: '#64748b' }}>—</span>
+            )}
+          </div>
         </div>
 
         {/* KPI Cards Grid */}

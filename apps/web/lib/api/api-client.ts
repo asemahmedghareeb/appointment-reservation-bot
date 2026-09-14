@@ -9,8 +9,8 @@ import type {
 
 const API_BASE_URL =
   typeof window !== 'undefined'
-    ? process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'
-    : process.env.API_URL || 'http://localhost:4000';
+    ? process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
+    : process.env.API_URL || 'http://localhost:3001';
 
 async function fetchJson<T>(path: string, options?: RequestInit): Promise<T> {
   const url = `${API_BASE_URL}${path.startsWith('/') ? path : `/${path}`}`;
@@ -52,6 +52,12 @@ export const api = {
       fetchJson<CaseTimelineItem[]>(`/operations/cases/${caseId}/timeline`),
     getAttentionList: (limit = 50) =>
       fetchJson<AttentionItem[]>(`/operations/attention?limit=${limit}`),
+    getProvidersHealth: () =>
+      fetchJson<any>('/operations/providers/health'),
+    getQueueHealth: () =>
+      fetchJson<any>('/operations/queue/health'),
+    getRecoveryCandidates: () =>
+      fetchJson<any[]>('/operations/recovery/candidates'),
   },
 
   bookingCases: {
