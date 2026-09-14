@@ -166,6 +166,7 @@ model BookingCase {
   providerAccount    ProviderAccount?          @relation(fields: [providerAccountId], references: [id])
   automationSessions AutomationSession[]
   paymentHandoffs    PaymentHandoff[]
+  notifications      Notification[]
 
   @@index([status])
   @@index([providerRouteId])
@@ -235,6 +236,23 @@ model ActivityLog {
   createdAt     DateTime       @default(now())
 
   @@index([bookingCaseId])
+  @@index([createdAt])
+}
+
+model Notification {
+  id            String       @id @default(cuid())
+  userId        String?
+  bookingCaseId String?
+  bookingCase   BookingCase? @relation(fields: [bookingCaseId], references: [id])
+  type          String
+  title         String
+  message       String
+  readAt        DateTime?
+  createdAt     DateTime     @default(now())
+
+  @@index([userId])
+  @@index([bookingCaseId])
+  @@index([readAt])
   @@index([createdAt])
 }
 

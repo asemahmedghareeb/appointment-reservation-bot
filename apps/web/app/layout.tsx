@@ -1,9 +1,11 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
+import './globals.css';
+import { AppProviders } from '../providers/app-providers';
 
 export const metadata: Metadata = {
-  title: 'VisaFlow',
-  description: 'Visa appointment operations platform foundation',
+  title: 'VisaFlow — Real-Time Operations Platform',
+  description: 'Mission-critical visa appointment operations console',
 };
 
 export default function RootLayout({
@@ -13,8 +15,8 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body style={{ margin: 0, fontFamily: 'system-ui, -apple-system, sans-serif' }}>
-        {children}
+      <body>
+        <AppProviders>{children}</AppProviders>
       </body>
     </html>
   );

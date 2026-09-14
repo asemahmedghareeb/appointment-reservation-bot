@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import {
   BookingCaseStatus,
   StateActorType,
@@ -8,10 +8,12 @@ import {
   BookingCaseStateMachine,
   defaultStateMachine,
 } from '@visaflow/provider-core';
+import { OperationsEventType } from '@visaflow/shared-types';
 import { OrchestratorRepository } from '../repositories/orchestrator.repository.js';
 import { BookingCaseNotFoundError } from '../../booking-cases/errors/booking-case-not-found.error.js';
 import { StaleCaseStateError } from '../errors/stale-case-state.error.js';
 import { HumanResumeTargetMismatchError } from '../errors/human-resume-target-mismatch.error.js';
+import { OperationsEventsService } from '../../operations/operations-events.service.js';
 
 export interface TransitionRequest {
   caseId: string;
@@ -29,7 +31,8 @@ export class CaseTransitionService {
 
   constructor(
     private readonly orchestratorRepo: OrchestratorRepository,
-    stateMachineOverride?: BookingCaseStateMachine,
+    @Optional() stateMachineOverride?: BookingCaseStateMachine,
+    @Optional() private readonly eventsService?: OperationsEventsService,
   ) {
     this.stateMachine = stateMachineOverride ?? defaultStateMachine;
   }
@@ -87,6 +90,32 @@ export class CaseTransitionService {
       metadata: request.metadata,
     });
 
+    if (this.eventsService) {
+      this.eventsService.emit(OperationsEventType.CASE_STATUS_CHANGED, request.caseId, {
+        fromStatus: currentStatus,
+        toStatus: request.toStatus,
+        reason: request.reason,
+      });
+
+      if (
+        request.toStatus === BookingCaseStatus.HUMAN_VERIFICATION_REQUIRED ||
+        request.toStatus === BookingCaseStatus.PAYMENT_REQUIRED ||
+        request.toStatus === BookingCaseStatus.FAILED
+      ) {
+        this.eventsService.emit(OperationsEventType.CASE_ATTENTION_REQUIRED, request.caseId, {
+          status: request.toStatus,
+          reason: request.reason,
+        });
+      }
+
+      if (request.toStatus === BookingCaseStatus.CONFIRMED) {
+        this.eventsService.emit(OperationsEventType.CASE_CONFIRMED, request.caseId, {
+          status: request.toStatus,
+        });
+      }
+    }
+
     return updated;
   }
 }
+
