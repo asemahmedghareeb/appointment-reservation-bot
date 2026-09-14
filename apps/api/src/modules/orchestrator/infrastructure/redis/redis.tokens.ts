@@ -1,0 +1,2 @@
+export const REDIS_LOCK_CLIENT = Symbol('REDIS_LOCK_CLIENT');
+export const REDIS_QUEUE_CLIENT = Symbol('REDIS_QUEUE_CLIENT');

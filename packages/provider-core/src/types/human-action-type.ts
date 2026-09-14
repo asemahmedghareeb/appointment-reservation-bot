@@ -1,0 +1,6 @@
+export enum HumanActionType {
+  CAPTCHA = 'CAPTCHA',
+  OTP = 'OTP',
+  MANUAL_VERIFICATION = 'MANUAL_VERIFICATION',
+  OTHER = 'OTHER',
+}

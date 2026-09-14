@@ -1,0 +1,11 @@
+export type UserId = string;
+export type ClientId = string;
+export type ApplicantId = string;
+export type ProviderId = string;
+export type ProviderRouteId = string;
+export type BookingCaseId = string;
+export type BookingApplicantId = string;
+export type BookingCaseStateHistoryId = string;
+export type ProviderAccountId = string;
+export type ActivityLogId = string;
+export type CaseNumber = string;

@@ -1,0 +1,303 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum BookingCaseStatus {
+  DRAFT
+  READY
+  AUTHENTICATING
+  HUMAN_VERIFICATION_REQUIRED
+  MONITORING
+  WAITING_QUEUE
+  SLOT_FOUND
+  BOOKING
+  ADDING_APPLICANTS
+  APPOINTMENT_SELECTED
+  PAYMENT_REQUIRED
+  PAYMENT_PROCESSING
+  CONFIRMED
+  SLOT_LOST
+  EXPIRED
+  FAILED
+  CANCELLED
+}
+
+enum ProviderCode {
+  VFS
+  TLS
+  BLS
+}
+
+enum BookingMode {
+  APPOINTMENT_CALENDAR
+  WAITING_QUEUE
+}
+
+enum UserRole {
+  ADMIN
+  BOOKING_AGENT
+  FINANCE
+  VIEWER
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+  UNSPECIFIED
+}
+
+enum ApplicantRelation {
+  PRIMARY
+  SPOUSE
+  CHILD
+  PARENT
+  SIBLING
+  OTHER
+}
+
+enum StateActorType {
+  USER
+  WORKER
+  SYSTEM
+}
+
+model User {
+  id           String        @id @default(cuid())
+  name         String
+  email        String        @unique
+  passwordHash String
+  role         UserRole
+  active       Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  clients      Client[]
+  bookingCases BookingCase[]
+}
+
+model Client {
+  id          String      @id @default(cuid())
+  fullName    String
+  phone       String?
+  email       String?
+  createdById String
+  createdBy   User        @relation(fields: [createdById], references: [id])
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  applicants  Applicant[]
+}
+
+model Applicant {
+  id                      String             @id @default(cuid())
+  clientId                String?
+  client                  Client?            @relation(fields: [clientId], references: [id])
+  firstName               String
+  lastName                String
+  gender                  Gender
+  dateOfBirth             DateTime
+  nationality             String
+  phone                   String?
+  email                   String?
+  passportNumberEncrypted String
+  passportNumberHash      String             @unique
+  passportExpiry          DateTime
+  createdAt               DateTime           @default(now())
+  updatedAt               DateTime           @updatedAt
+  bookingApplicants       BookingApplicant[]
+
+  @@index([clientId])
+}
+
+model Provider {
+  id        String            @id @default(cuid())
+  code      ProviderCode      @unique
+  name      String
+  active    Boolean           @default(true)
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+  routes    ProviderRoute[]
+  accounts  ProviderAccount[]
+}
+
+model ProviderRoute {
+  id                 String        @id @default(cuid())
+  providerId         String
+  provider           Provider      @relation(fields: [providerId], references: [id])
+  sourceCountry      String
+  destinationCountry String
+  applicationCentre  String
+  visaCategory       String
+  visaSubcategory    String
+  bookingMode        BookingMode
+  enabled            Boolean       @default(true)
+  configurationJson  Json?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  bookingCases       BookingCase[]
+
+  @@index([providerId])
+}
+
+model BookingCase {
+  id                 String                    @id @default(cuid())
+  caseNumber         String                    @unique
+  providerRouteId    String
+  providerRoute      ProviderRoute             @relation(fields: [providerRouteId], references: [id])
+  status             BookingCaseStatus         @default(DRAFT)
+  bookingMode        BookingMode
+  preferredDateFrom  DateTime?
+  preferredDateTo    DateTime?
+  preferredTime      String?
+  allowGroupSplit    Boolean                   @default(false)
+  createdById        String
+  createdBy          User                      @relation(fields: [createdById], references: [id])
+  createdAt          DateTime                  @default(now())
+  updatedAt          DateTime                  @updatedAt
+  bookingApplicants  BookingApplicant[]
+  stateHistory       BookingCaseStateHistory[]
+  activityLogs       ActivityLog[]
+  providerAccountId  String?
+  providerAccount    ProviderAccount?          @relation(fields: [providerAccountId], references: [id])
+  automationSessions AutomationSession[]
+  paymentHandoffs    PaymentHandoff[]
+
+  @@index([status])
+  @@index([providerRouteId])
+  @@index([providerAccountId])
+  @@index([createdAt])
+}
+
+model BookingApplicant {
+  id            String            @id @default(cuid())
+  bookingCaseId String
+  bookingCase   BookingCase       @relation(fields: [bookingCaseId], references: [id])
+  applicantId   String
+  applicant     Applicant         @relation(fields: [applicantId], references: [id])
+  position      Int
+  relation      ApplicantRelation
+  isPrimary     Boolean           @default(false)
+  createdAt     DateTime          @default(now())
+
+  @@unique([bookingCaseId, applicantId])
+  @@unique([bookingCaseId, position])
+  @@index([bookingCaseId])
+  @@index([applicantId])
+}
+
+model BookingCaseStateHistory {
+  id            String             @id @default(cuid())
+  bookingCaseId String
+  bookingCase   BookingCase        @relation(fields: [bookingCaseId], references: [id])
+  fromStatus    BookingCaseStatus?
+  toStatus      BookingCaseStatus
+  reason        String?
+  actorType     StateActorType
+  actorId       String?
+  metadata      Json?
+  createdAt     DateTime           @default(now())
+
+  @@index([bookingCaseId])
+  @@index([createdAt])
+}
+
+model ProviderAccount {
+  id                 String              @id @default(cuid())
+  providerId         String
+  provider           Provider            @relation(fields: [providerId], references: [id])
+  label              String
+  email              String?
+  username           String?
+  passwordEncrypted  String
+  active             Boolean             @default(true)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  bookingCases       BookingCase[]
+  automationSessions AutomationSession[]
+
+  @@index([providerId])
+}
+
+model ActivityLog {
+  id            String         @id @default(cuid())
+  bookingCaseId String?
+  bookingCase   BookingCase?   @relation(fields: [bookingCaseId], references: [id])
+  actorType     StateActorType
+  actorId       String?
+  eventType     String
+  message       String
+  metadata      Json?
+  createdAt     DateTime       @default(now())
+
+  @@index([bookingCaseId])
+  @@index([createdAt])
+}
+
+enum AutomationSessionStatus {
+  STARTING
+  ACTIVE
+  HUMAN_ACTION_REQUIRED
+  PAYMENT_HANDOFF
+  COMPLETED
+  LOST
+  FAILED
+  EXPIRED
+}
+
+model AutomationSession {
+  id                    String                  @id @default(cuid())
+  bookingCaseId         String
+  bookingCase           BookingCase             @relation(fields: [bookingCaseId], references: [id])
+  providerAccountId     String?
+  providerAccount       ProviderAccount?        @relation(fields: [providerAccountId], references: [id])
+  providerCode          ProviderCode
+  workerId              String
+  status                AutomationSessionStatus @default(STARTING)
+  storageStateEncrypted String?
+  humanActionType       String?
+  resumeToStatus        BookingCaseStatus?
+  checkpointJson        Json?
+  currentPath           String?
+  lastHeartbeatAt       DateTime                @default(now())
+  expiresAt             DateTime?
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+  paymentHandoffs       PaymentHandoff[]
+
+  @@index([bookingCaseId])
+  @@index([workerId])
+  @@index([status])
+}
+
+enum PaymentHandoffStatus {
+  REQUIRED
+  PROCESSING
+  PAID
+  FAILED
+  EXPIRED
+}
+
+model PaymentHandoff {
+  id                  String               @id @default(cuid())
+  bookingCaseId       String
+  bookingCase         BookingCase          @relation(fields: [bookingCaseId], references: [id])
+  automationSessionId String?
+  automationSession   AutomationSession?   @relation(fields: [automationSessionId], references: [id])
+  status              PaymentHandoffStatus @default(REQUIRED)
+  amount              Decimal?             @db.Decimal(10, 2)
+  currency            String?
+  externalReference   String?
+  deadlineAt          DateTime?
+  safePaymentPath     String?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+
+  @@index([bookingCaseId])
+  @@index([automationSessionId])
+  @@index([status])
+}

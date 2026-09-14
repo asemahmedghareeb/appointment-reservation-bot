@@ -1,0 +1,28 @@
+{
+  "name": "visaflow-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@10.18.3",
+  "scripts": {
+    "dev": "turbo run dev --parallel",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "db:generate": "pnpm --filter @visaflow/database prisma:generate",
+    "db:validate": "pnpm --filter @visaflow/database prisma:validate",
+    "db:migrate": "pnpm --filter @visaflow/database prisma:migrate",
+    "db:seed": "pnpm --filter @visaflow/database prisma:seed",
+    "infra:check": "node scripts/check-cloud-infra.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.9",
+    "@types/pg": "^8.11.11",
+    "dotenv": "^16.4.7",
+    "dotenv-cli": "^11.0.0",
+    "ioredis": "^5.6.0",
+    "pg": "^8.13.3",
+    "turbo": "^2.4.4",
+    "typescript": "^5.8.2"
+  }
+}

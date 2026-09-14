@@ -1,0 +1,22 @@
+{
+  "name": "@visaflow/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --loader tsx --watch src/main.ts",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "start": "node dist/main.js",
+    "lint": "echo 'No lint specified for worker'",
+    "test": "echo 'No tests specified for worker'"
+  },
+  "dependencies": {
+    "@visaflow/config": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.9",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2"
+  }
+}

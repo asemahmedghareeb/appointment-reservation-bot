@@ -1,0 +1,60 @@
+export const VFS_SELECTORS = {
+  login: {
+    heading: 'Sign In',
+    emailInput: 'input[name="email"], input[type="email"], #email',
+    passwordInput: 'input[name="password"], input[type="password"], #password',
+    submitButton: 'button[type="submit"], button:has-text("Sign In")',
+  },
+  bookingHome: {
+    heading: 'Dashboard',
+    startNewBookingButton: 'button:has-text("Start New Booking"), a:has-text("Start New Booking"), button:has-text("New Booking")',
+  },
+  appointmentDetails: {
+    heading: 'Appointment Details',
+    centreSelect: 'select[name="centre"], #applicationCentre',
+    categorySelect: 'select[name="category"], #visaCategory',
+    subcategorySelect: 'select[name="subcategory"], #visaSubcategory',
+    continueButton: 'button:has-text("Continue"), button:has-text("Next")',
+  },
+  availability: {
+    heading: 'Appointment Availability',
+    slotNotice: '.slot-notice, .availability-message, [data-testid="availability-notice"]',
+    earliestSlotBadge: '.earliest-slot, [data-testid="earliest-slot"]',
+    noSlotNotice: '.no-slot-notice, text="No appointment slots are currently available"',
+  },
+  applicantDetails: {
+    heading: 'Applicant Details',
+    firstName: 'input[name="firstName"]',
+    lastName: 'input[name="lastName"]',
+    genderSelect: 'select[name="gender"]',
+    dateOfBirth: 'input[name="dateOfBirth"]',
+    nationality: 'input[name="nationality"], select[name="nationality"]',
+    passportNumber: 'input[name="passportNumber"]',
+    passportExpiry: 'input[name="passportExpiry"]',
+    contactNumber: 'input[name="contactNumber"]',
+    email: 'input[name="email"]',
+    saveApplicantButton: 'button:has-text("Save"), button:has-text("Add Applicant")',
+    continueButton: 'button:has-text("Continue"), button:has-text("Review Details")',
+  },
+  slotSelection: {
+    heading: 'Select Slot',
+    slotItem: '.slot-item, [data-testid="slot-candidate"], input[type="radio"][name="slot"]',
+    continueButton: 'button:has-text("Continue"), button:has-text("Proceed to Payment")',
+  },
+  payment: {
+    heading: 'Payment Details',
+    amount: '.payment-amount, [data-testid="payment-amount"]',
+    currency: '.payment-currency, [data-testid="payment-currency"]',
+    externalReference: '.payment-reference, [data-testid="payment-reference"]',
+    payButton: 'button:has-text("Pay"), button:has-text("Complete Payment")',
+  },
+  confirmation: {
+    heading: 'Appointment Confirmation',
+    referenceNumber: '.confirmation-number, [data-testid="booking-reference"], .booking-ref',
+  },
+  humanVerification: {
+    captchaContainer: '.g-recaptcha, .h-captcha, .cf-turnstile, [data-testid="captcha-container"], #captcha',
+    otpContainer: '.otp-form, [data-testid="otp-container"], input[name="otp"]',
+    manualVerification: '.manual-verification, [data-testid="manual-verification"]',
+  },
+} as const;
