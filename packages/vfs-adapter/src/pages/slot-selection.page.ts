@@ -41,9 +41,9 @@ export class SlotSelectionPage extends BaseVfsPage {
             slot: {
               date: slotDate,
               time: '09:30',
-              centre,
               capacity: 5,
               externalSlotId: `slot_${slotDate.replace(/-/g, '')}`,
+              ...(centre ? { centre } : {}),
             },
           },
         };

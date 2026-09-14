@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>VFS Global - Payment Details</title>
+</head>
+<body>
+  <h1>Payment Details</h1>
+  <form action="/payment" method="POST">
+    <div class="payment-summary">
+      <p>Please complete payment within 15 minutes to secure your slot.</p>
+      <div class="fee-row">
+        <span>Amount: </span>
+        <span class="payment-amount">45.00</span>
+        <span class="payment-currency">EUR</span>
+      </div>
+      <div class="ref-row">
+        <span>Payment Reference: </span>
+        <span class="payment-reference">PAY-VFS-2026-9988</span>
+      </div>
+    </div>
+    <button id="pay-btn" type="submit">Complete Payment</button>
+  </form>
+</body>
+</html>

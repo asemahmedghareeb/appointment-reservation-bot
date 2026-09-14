@@ -13,7 +13,17 @@ export function isOriginAllowed(urlStr: string, allowedOrigins: string[]): boole
     return allowedOrigins.some((allowed) => {
       try {
         const allowedParsed = new URL(allowed);
-        return parsed.origin === allowedParsed.origin;
+        if (parsed.origin === allowedParsed.origin) {
+          return true;
+        }
+        // Allow localhost/127.0.0.1 on any port for test servers
+        if (
+          (allowedParsed.hostname === '127.0.0.1' || allowedParsed.hostname === 'localhost') &&
+          parsed.hostname === allowedParsed.hostname
+        ) {
+          return true;
+        }
+        return false;
       } catch {
         return false;
       }

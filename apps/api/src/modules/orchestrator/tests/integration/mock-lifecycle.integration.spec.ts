@@ -46,8 +46,10 @@ describe('Full Mock Lifecycle Integration Test: READY -> CONFIRMED (Section 82 &
       preferredTime: '09:00',
       allowGroupSplit: false,
       createdById: 'user_agent_1',
+      providerAccountId: null,
       createdAt: new Date(),
       updatedAt: new Date(),
+
       providerRoute: {
         id: 'route_lifecycle_1',
         providerId: 'prov_vfs',

@@ -68,12 +68,13 @@ export function matchAvailability(
     // If no specific bucket covers this range, but requestedApplicants <= maxCapacity
     const fallback = buckets.find((b) => b.maxApplicants >= requestedApplicants);
     if (fallback) {
+      const resolvedCentre = centre ?? fallback.centre;
       const slot: SlotCandidate = {
         date: fallback.earliestDate,
         time: fallback.time ?? '09:00',
-        centre: centre ?? fallback.centre,
         capacity: fallback.maxApplicants,
         externalSlotId: fallback.externalSlotId ?? `slot_${fallback.earliestDate.replace(/-/g, '')}`,
+        ...(resolvedCentre ? { centre: resolvedCentre } : {}),
       };
       return {
         kind: 'SUCCESS',
@@ -90,12 +91,13 @@ export function matchAvailability(
     };
   }
 
+  const resolvedCentre = centre ?? matching.centre;
   const slot: SlotCandidate = {
     date: matching.earliestDate,
     time: matching.time ?? '09:00',
-    centre: centre ?? matching.centre,
     capacity: matching.maxApplicants,
     externalSlotId: matching.externalSlotId ?? `slot_${matching.earliestDate.replace(/-/g, '')}`,
+    ...(resolvedCentre ? { centre: resolvedCentre } : {}),
   };
 
   return {

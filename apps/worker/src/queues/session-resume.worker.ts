@@ -1,0 +1,142 @@
+import { Worker, type Job } from 'bullmq';
+import { Redis } from 'ioredis';
+import {
+  BookingCaseStatus,
+  StateActorType,
+} from '@visaflow/database';
+import type { OrchestratorJobEnvelope } from '@visaflow/shared-types';
+import type { WorkerConfig } from '../config/worker.config.js';
+import { getRedisOptions } from '../config/worker.config.js';
+import type { WorkerRepository } from '../repositories/worker.repository.js';
+import type { ProviderContextLoaderService } from '../services/provider-context-loader.service.js';
+import type { ProviderAdapterRegistryService } from '../services/provider-adapter-registry.service.js';
+import type { AutomationSessionService } from '../services/automation-session.service.js';
+import { QUEUE_NAMES } from './queue.constants.js';
+
+
+export class SessionResumeWorker {
+  private worker?: Worker;
+  private redisClient?: Redis;
+
+  constructor(
+    private readonly config: WorkerConfig,
+    private readonly repo: WorkerRepository,
+    private readonly contextLoader: ProviderContextLoaderService,
+    private readonly adapterRegistry: ProviderAdapterRegistryService,
+    private readonly sessionService: AutomationSessionService,
+  ) {}
+
+  start(): void {
+    this.redisClient = new Redis(this.config.redisUrl, getRedisOptions(this.config.redisUrl));
+
+    this.worker = new Worker(
+      QUEUE_NAMES.SESSION_RESUME,
+      async (job: Job<OrchestratorJobEnvelope>) => {
+        return this.processJob(job);
+      },
+      {
+        connection: this.redisClient,
+        prefix: this.config.queuePrefix,
+        concurrency: 2,
+      },
+    );
+  }
+
+  async processJob(job: Job<OrchestratorJobEnvelope>): Promise<{ outcome: string }> {
+    const envelope = job.data;
+    const caseId = envelope.caseId;
+
+    const bookingCase = await this.repo.findCaseById(caseId);
+    if (!bookingCase) {
+      return { outcome: 'CASE_NOT_FOUND' };
+    }
+
+    // Check case is currently HUMAN_VERIFICATION_REQUIRED or PAYMENT_REQUIRED
+    if (
+      bookingCase.status !== BookingCaseStatus.HUMAN_VERIFICATION_REQUIRED &&
+      bookingCase.status !== BookingCaseStatus.PAYMENT_REQUIRED
+    ) {
+      return { outcome: 'SKIPPED_ALREADY_APPLIED' };
+    }
+
+    const activeSession = await this.repo.findActiveSessionByCaseId(caseId);
+    if (!activeSession) {
+      return { outcome: 'NO_ACTIVE_SESSION' };
+    }
+
+    // Check worker ownership
+    if (!this.sessionService.assertSessionOwnership(activeSession.workerId)) {
+      return { outcome: 'SESSION_OWNER_MISMATCH' };
+    }
+
+    const { context } = await this.contextLoader.loadContextAndApplicants(
+      caseId,
+      envelope.correlationId,
+    );
+    const adapter = this.adapterRegistry.resolve(context.providerRoute.providerCode);
+
+    if (bookingCase.status === BookingCaseStatus.HUMAN_VERIFICATION_REQUIRED) {
+      const resumeRes = await adapter.resume(context);
+      if (resumeRes.kind === 'HUMAN_ACTION_REQUIRED') {
+        return { outcome: 'HUMAN_ACTION_STILL_REQUIRED' };
+      }
+
+      // Validated resume target from active session
+      const targetStatus = activeSession.resumeToStatus ?? BookingCaseStatus.MONITORING;
+
+      await this.repo.atomicConditionalTransition({
+        caseId,
+        fromStatus: BookingCaseStatus.HUMAN_VERIFICATION_REQUIRED,
+        toStatus: targetStatus,
+        actorType: StateActorType.WORKER,
+        actorId: this.config.workerId,
+        reason: 'Human verification completed; resuming automation session',
+      });
+
+      return { outcome: 'RESUMED' };
+    }
+
+    // If case is in PAYMENT_REQUIRED and user resumes after manual payment completion:
+    if (bookingCase.status === BookingCaseStatus.PAYMENT_REQUIRED) {
+      const paymentRes = await adapter.getPaymentState(context);
+      if (paymentRes.kind === 'SUCCESS' && (paymentRes.data.paymentState === 'PAID' || paymentRes.data.paymentState === 'PROCESSING')) {
+        await this.repo.atomicConditionalTransition({
+          caseId,
+          fromStatus: BookingCaseStatus.PAYMENT_REQUIRED,
+          toStatus: BookingCaseStatus.PAYMENT_PROCESSING,
+          actorType: StateActorType.WORKER,
+          actorId: this.config.workerId,
+          reason: 'Manual payment completed; confirming appointment',
+        });
+
+        const confirmRes = await adapter.getConfirmation(context);
+        if (confirmRes.kind === 'SUCCESS') {
+          await this.repo.atomicConditionalTransition({
+            caseId,
+            fromStatus: BookingCaseStatus.PAYMENT_PROCESSING,
+            toStatus: BookingCaseStatus.CONFIRMED,
+            actorType: StateActorType.WORKER,
+            actorId: this.config.workerId,
+            reason: `Appointment confirmed: ${confirmRes.data.referenceNumber}`,
+            metadata: {
+              referenceNumber: confirmRes.data.referenceNumber,
+              appointmentDate: confirmRes.data.appointmentDate,
+            },
+          });
+
+          await this.sessionService.completeSession(activeSession.id);
+          return { outcome: 'CONFIRMED' };
+        }
+      }
+
+      return { outcome: 'PAYMENT_PENDING' };
+    }
+
+    return { outcome: 'UNKNOWN_STATE' };
+  }
+
+  async close(): Promise<void> {
+    await this.worker?.close();
+    await this.redisClient?.quit();
+  }
+}

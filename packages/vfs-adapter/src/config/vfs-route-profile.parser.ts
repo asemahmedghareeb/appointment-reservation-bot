@@ -25,6 +25,6 @@ export function parseVfsRouteProfile(config: Record<string, unknown> | null | un
     entryUrl,
     availabilityMode,
     expectedProviderCode,
-    capabilities,
+    ...(capabilities ? { capabilities } : {}),
   };
 }

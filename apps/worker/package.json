@@ -9,14 +9,24 @@
     "typecheck": "tsc --noEmit",
     "start": "node dist/main.js",
     "lint": "echo 'No lint specified for worker'",
-    "test": "echo 'No tests specified for worker'"
+    "test": "vitest run",
+    "test:integration": "vitest run tests/integration"
   },
   "dependencies": {
-    "@visaflow/config": "workspace:*"
+    "@visaflow/config": "workspace:*",
+    "@visaflow/crypto": "workspace:*",
+    "@visaflow/database": "workspace:*",
+    "@visaflow/provider-core": "workspace:*",
+    "@visaflow/shared-types": "workspace:*",
+    "@visaflow/vfs-adapter": "workspace:*",
+    "bullmq": "^5.41.0",
+    "dotenv": "^16.4.7",
+    "ioredis": "^5.6.0"
   },
   "devDependencies": {
     "@types/node": "^22.13.9",
     "tsx": "^4.19.3",
-    "typescript": "^5.8.2"
+    "typescript": "^5.8.2",
+    "vitest": "^3.0.8"
   }
 }

@@ -15,8 +15,12 @@ import { IdempotencyGuardService } from './services/idempotency-guard.service.js
 import { ProviderAdapterResolver } from './services/provider-adapter-resolver.service.js';
 import { OrchestrationEngineService } from './services/orchestration-engine.service.js';
 
+import { AutomationOperationsController } from './controllers/automation-operations.controller.js';
+import { AutomationOperationsService } from './services/automation-operations.service.js';
+
 @Global()
 @Module({
+  controllers: [AutomationOperationsController],
   providers: [
     {
       provide: REDIS_LOCK_CLIENT,
@@ -33,6 +37,7 @@ import { OrchestrationEngineService } from './services/orchestration-engine.serv
     IdempotencyGuardService,
     ProviderAdapterResolver,
     OrchestrationEngineService,
+    AutomationOperationsService,
   ],
   exports: [
     REDIS_LOCK_CLIENT,
@@ -44,6 +49,8 @@ import { OrchestrationEngineService } from './services/orchestration-engine.serv
     IdempotencyGuardService,
     ProviderAdapterResolver,
     OrchestrationEngineService,
+    AutomationOperationsService,
   ],
 })
+
 export class OrchestratorModule {}

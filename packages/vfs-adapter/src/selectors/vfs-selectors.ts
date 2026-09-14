@@ -20,7 +20,7 @@ export const VFS_SELECTORS = {
     heading: 'Appointment Availability',
     slotNotice: '.slot-notice, .availability-message, [data-testid="availability-notice"]',
     earliestSlotBadge: '.earliest-slot, [data-testid="earliest-slot"]',
-    noSlotNotice: '.no-slot-notice, text="No appointment slots are currently available"',
+    noSlotNotice: '.no-slot-notice',
   },
   applicantDetails: {
     heading: 'Applicant Details',

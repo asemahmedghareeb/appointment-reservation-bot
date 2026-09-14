@@ -1,29 +1,22 @@
-import { getEnv } from '@visaflow/config';
+import { WorkerBootstrap } from './worker-bootstrap.js';
 
 async function bootstrap() {
-  console.log('Starting VisaFlow worker shell...');
-  const env = getEnv();
+  console.log('Starting VisaFlow worker...');
+  const worker = new WorkerBootstrap();
+  await worker.start();
 
-  console.log(`VisaFlow worker shell initialized successfully. [NODE_ENV=${env.NODE_ENV}]`);
-  console.log('Worker standing by for future phase job queue consumers.');
-
-  const shutdown = (signal: string) => {
-    console.log(`Received ${signal}. Shutting down worker shell cleanly...`);
+  const shutdown = async (signal: string) => {
+    console.log(`Received ${signal}. Shutting down worker cleanly...`);
+    await worker.shutdown();
     process.exit(0);
   };
 
-  process.on('SIGINT', () => shutdown('SIGINT'));
-  process.on('SIGTERM', () => shutdown('SIGTERM'));
-
-  // Keep worker alive in standby
-  const interval = setInterval(() => {
-    // idle heartbeat
-  }, 1000 * 60);
-
-  interval.unref();
+  process.on('SIGINT', () => void shutdown('SIGINT'));
+  process.on('SIGTERM', () => void shutdown('SIGTERM'));
 }
 
 bootstrap().catch((err) => {
-  console.error('Failed to initialize VisaFlow worker shell:', err);
+  console.error('Failed to initialize VisaFlow worker:', err);
   process.exit(1);
 });
+

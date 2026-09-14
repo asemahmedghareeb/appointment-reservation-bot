@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>VFS Global - Applicant Details</title>
+</head>
+<body>
+  <h1>Applicant Details</h1>
+  <div class="slot-notice">
+    <p>Earliest available slot for 1-2 applicants: 2026-11-16</p>
+    <p>Earliest available slot for 3-4 applicants: 2026-11-17</p>
+  </div>
+  <form id="applicant-form" action="/applicants" method="POST">
+    <div class="applicant-entry">
+      <label for="firstName">First Name</label>
+      <input type="text" id="firstName" name="firstName" required />
+
+      <label for="lastName">Last Name</label>
+      <input type="text" id="lastName" name="lastName" required />
+
+      <label for="gender">Gender</label>
+      <select id="gender" name="gender">
+        <option value="MALE">MALE</option>
+        <option value="FEMALE">FEMALE</option>
+      </select>
+
+      <label for="dateOfBirth">Date of Birth (DD/MM/YYYY)</label>
+      <input type="text" id="dateOfBirth" name="dateOfBirth" required />
+
+      <label for="nationality">Nationality</label>
+      <input type="text" id="nationality" name="nationality" required />
+
+      <label for="passportNumber">Passport Number</label>
+      <input type="text" id="passportNumber" name="passportNumber" required />
+
+      <label for="passportExpiry">Passport Expiry (DD/MM/YYYY)</label>
+      <input type="text" id="passportExpiry" name="passportExpiry" required />
+
+      <label for="contactNumber">Contact Number</label>
+      <input type="text" id="contactNumber" name="contactNumber" />
+
+      <label for="email">Email</label>
+      <input type="email" id="email" name="email" />
+    </div>
+
+    <button type="button" id="save-applicant">Save</button>
+    <button type="submit" id="continue-applicants">Continue</button>
+  </form>
+</body>
+</html>

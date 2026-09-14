@@ -45,8 +45,10 @@ describe('CaseReadinessService', () => {
     preferredTime: null,
     allowGroupSplit: false,
     createdById: 'user_1',
+    providerAccountId: null,
     createdAt: new Date(),
     updatedAt: new Date(),
+
     providerRoute: {
       id: 'route_1',
       providerId: 'prov_1',

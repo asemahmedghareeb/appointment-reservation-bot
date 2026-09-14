@@ -68,8 +68,10 @@ describe('BookingCasesService', () => {
     preferredTime: null,
     allowGroupSplit: false,
     createdById: 'user_1',
+    providerAccountId: null,
     createdAt: new Date(),
     updatedAt: new Date(),
+
     providerRoute: mockRoute,
     bookingApplicants: [
       {

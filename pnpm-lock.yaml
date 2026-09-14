@@ -124,6 +124,30 @@ importers:
       '@visaflow/config':
         specifier: workspace:*
         version: link:../../packages/config
+      '@visaflow/crypto':
+        specifier: workspace:*
+        version: link:../../packages/crypto
+      '@visaflow/database':
+        specifier: workspace:*
+        version: link:../../packages/database
+      '@visaflow/provider-core':
+        specifier: workspace:*
+        version: link:../../packages/provider-core
+      '@visaflow/shared-types':
+        specifier: workspace:*
+        version: link:../../packages/shared-types
+      '@visaflow/vfs-adapter':
+        specifier: workspace:*
+        version: link:../../packages/vfs-adapter
+      bullmq:
+        specifier: ^5.41.0
+        version: 5.81.5
+      dotenv:
+        specifier: ^16.4.7
+        version: 16.6.1
+      ioredis:
+        specifier: ^5.6.0
+        version: 5.11.1
     devDependencies:
       '@types/node':
         specifier: ^22.13.9
@@ -134,6 +158,9 @@ importers:
       typescript:
         specifier: ^5.8.2
         version: 5.9.3
+      vitest:
+        specifier: ^3.0.8
+        version: 3.2.7(@types/node@22.20.2)(jiti@2.7.0)(tsx@4.23.13)
 
   packages/config:
     dependencies:

@@ -1,5 +1,4 @@
 import {
-  BookingCaseStatus,
   type VisaProviderAdapter,
   type ProviderContext,
   type SlotCandidate,
@@ -15,6 +14,7 @@ import {
   type ResumeResult,
   HumanActionType,
 } from '@visaflow/provider-core';
+import { BookingCaseStatus } from '@visaflow/shared-types';
 import type { VfsBrowserSessionManager } from './runtime/vfs-browser-session-manager.js';
 import type { VfsCredentialsProvider } from './credentials/vfs-credentials-provider.js';
 import type { VfsAdapterConfig } from './config/vfs-adapter-config.js';
@@ -108,8 +108,8 @@ export class VfsProviderAdapter implements VisaProviderAdapter {
       return {
         kind: 'SUCCESS',
         data: {
-          authenticated: true,
-          sessionExpiry: new Date(Date.now() + this.config.sessionTtlMinutes * 60 * 1000).toISOString(),
+          authenticatedAt: new Date().toISOString(),
+          sessionId: session.caseId,
         },
       };
     } catch (err: any) {
@@ -159,11 +159,13 @@ export class VfsProviderAdapter implements VisaProviderAdapter {
       return {
         kind: 'SUCCESS',
         data: {
-          supported: true,
+          routeSupported: true,
           bookingMode: context.providerRoute.bookingMode,
-          resolvedCentre: context.providerRoute.applicationCentre,
-          resolvedCategory: context.providerRoute.visaCategory,
-          resolvedSubcategory: context.providerRoute.visaSubcategory,
+          metadata: {
+            resolvedCentre: context.providerRoute.applicationCentre,
+            resolvedCategory: context.providerRoute.visaCategory,
+            resolvedSubcategory: context.providerRoute.visaSubcategory,
+          },
         },
       };
     } catch (err: any) {
@@ -238,8 +240,8 @@ export class VfsProviderAdapter implements VisaProviderAdapter {
       return {
         kind: 'SUCCESS',
         data: {
+          outcome: 'STARTED',
           bookingSessionId: `vfs_booking_${context.caseId}`,
-          expiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
         },
       };
     } catch (err: any) {
@@ -282,7 +284,7 @@ export class VfsProviderAdapter implements VisaProviderAdapter {
       return {
         kind: 'SUCCESS',
         data: {
-          submittedApplicantCount: applicants.length,
+          submittedCount: applicants.length,
         },
       };
     } catch (err: any) {
@@ -324,19 +326,17 @@ export class VfsProviderAdapter implements VisaProviderAdapter {
 
       if (!selected) {
         return {
-          kind: 'SUCCESS',
-          data: {
-            selected: false,
-            slotLost: true,
-          },
+          kind: 'RETRYABLE_FAILURE',
+          code: 'SLOT_LOST',
+          safeMessage: 'Appointment slot is no longer available.',
         };
       }
 
       return {
         kind: 'SUCCESS',
         data: {
-          selected: true,
-          slot,
+          selectedSlot: slot,
+          selectedAt: new Date().toISOString(),
         },
       };
     } catch (err: any) {
@@ -370,20 +370,23 @@ export class VfsProviderAdapter implements VisaProviderAdapter {
         };
       }
 
+      if (session.page.url().includes('payment')) {
+        await session.page.reload({ waitUntil: 'domcontentloaded', timeout: 5000 }).catch(() => {});
+      }
+
       const paymentPage = new PaymentPage(session.page);
       const paymentInfo = await paymentPage.getPaymentDetails();
 
+
       if (paymentInfo.isPaymentPage) {
+        const parsedAmount = paymentInfo.amount ? Number(paymentInfo.amount) : undefined;
         return {
           kind: 'SUCCESS',
           data: {
-            status: 'REQUIRED',
-            amount: paymentInfo.amount,
-            currency: paymentInfo.currency,
-            externalReference: paymentInfo.externalReference,
-            deadlineAt: paymentInfo.deadlineMinutes
-              ? new Date(Date.now() + paymentInfo.deadlineMinutes * 60 * 1000).toISOString()
-              : undefined,
+            paymentState: 'REQUIRED',
+            currency: paymentInfo.currency ?? 'EUR',
+            ...(parsedAmount !== undefined ? { amount: parsedAmount } : {}),
+            ...(paymentInfo.externalReference ? { reference: paymentInfo.externalReference } : {}),
           },
         };
       }
@@ -395,7 +398,7 @@ export class VfsProviderAdapter implements VisaProviderAdapter {
         return {
           kind: 'SUCCESS',
           data: {
-            status: 'PAID',
+            paymentState: 'PAID',
           },
         };
       }
@@ -403,7 +406,7 @@ export class VfsProviderAdapter implements VisaProviderAdapter {
       return {
         kind: 'SUCCESS',
         data: {
-          status: 'PROCESSING',
+          paymentState: 'PROCESSING',
         },
       };
     } catch (err: any) {
@@ -434,19 +437,18 @@ export class VfsProviderAdapter implements VisaProviderAdapter {
         return {
           kind: 'SUCCESS',
           data: {
-            confirmed: true,
-            bookingReference: confirmInfo.bookingReference,
-            appointmentDate: confirmInfo.appointmentDate,
-            centre: confirmInfo.centre,
+            referenceNumber: confirmInfo.bookingReference ?? 'CONFIRMED_REF',
+            confirmedAt: new Date().toISOString(),
+            appointmentDate: confirmInfo.appointmentDate ?? new Date().toISOString().slice(0, 10),
+            ...(confirmInfo.centre ? { centre: confirmInfo.centre } : {}),
           },
         };
       }
 
       return {
-        kind: 'SUCCESS',
-        data: {
-          confirmed: false,
-        },
+        kind: 'RETRYABLE_FAILURE',
+        code: 'NOT_CONFIRMED',
+        safeMessage: 'Booking confirmation not yet available.',
       };
     } catch (err: any) {
       return {
@@ -469,8 +471,12 @@ export class VfsProviderAdapter implements VisaProviderAdapter {
     }
 
     try {
+      await session.page.reload({ waitUntil: 'domcontentloaded', timeout: 10000 }).catch(() => {});
+
       // Re-check challenge on the page
       const challenge = await this.humanDetector.detect(session.page);
+
+
       if (challenge.detected) {
         return {
           kind: 'HUMAN_ACTION_REQUIRED',
@@ -484,6 +490,7 @@ export class VfsProviderAdapter implements VisaProviderAdapter {
         kind: 'SUCCESS',
         data: {
           resumed: true,
+          resumedAt: new Date().toISOString(),
         },
       };
     } catch (err: any) {

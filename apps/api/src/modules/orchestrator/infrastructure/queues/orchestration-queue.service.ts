@@ -48,7 +48,8 @@ export class OrchestrationQueueService implements OnModuleDestroy {
       correlationId: params.correlationId,
       cycleId: params.cycleId,
       idempotencyKey: params.idempotencyKey,
-      expectedStatuses: [BookingCaseStatus.MONITORING, BookingCaseStatus.WAITING_QUEUE],
+      expectedStatuses: [BookingCaseStatus.READY, BookingCaseStatus.MONITORING, BookingCaseStatus.WAITING_QUEUE],
+
       createdAt: new Date().toISOString(),
       payload: params.payload,
     };

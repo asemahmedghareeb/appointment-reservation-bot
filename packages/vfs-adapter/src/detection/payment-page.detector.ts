@@ -50,10 +50,10 @@ export class PaymentPageDetector {
 
         return {
           isPaymentPage: true,
-          amount,
           currency: currency ?? 'EUR',
-          externalReference,
           deadlineMinutes: 15,
+          ...(amount ? { amount } : {}),
+          ...(externalReference ? { externalReference } : {}),
         };
       }
 

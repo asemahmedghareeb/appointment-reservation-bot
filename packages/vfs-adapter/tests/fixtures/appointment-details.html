@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>VFS Global - Appointment Details</title>
+</head>
+<body>
+  <h1>Appointment Details</h1>
+  <form id="appointment-form" action="/appointment-details" method="POST">
+    <label for="applicationCentre">Application Centre</label>
+    <select id="applicationCentre" name="centre">
+      <option value="">Select Centre</option>
+      <option value="Cairo">Cairo</option>
+      <option value="Alexandria">Alexandria</option>
+    </select>
+
+    <label for="visaCategory">Visa Category</label>
+    <select id="visaCategory" name="category">
+      <option value="">Select Category</option>
+      <option value="Schengen Visa">Schengen Visa</option>
+      <option value="National Visa">National Visa</option>
+    </select>
+
+    <label for="visaSubcategory">Visa Subcategory</label>
+    <select id="visaSubcategory" name="subcategory">
+      <option value="">Select Subcategory</option>
+      <option value="Tourism">Tourism</option>
+      <option value="Business">Business</option>
+    </select>
+
+    <button type="submit">Continue</button>
+  </form>
+</body>
+</html>
