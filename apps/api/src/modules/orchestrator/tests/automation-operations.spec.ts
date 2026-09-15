@@ -33,6 +33,8 @@ describe('AutomationOperationsService Unit Tests', () => {
       enqueueSessionResume: vi.fn().mockResolvedValue({ jobId: 'job_resume_1', queueName: 'session-resume' }),
     };
 
+    vi.spyOn(prisma.providerAccount, 'findFirst').mockResolvedValue(null as any);
+
     service = new AutomationOperationsService(mockQueueService);
   });
 

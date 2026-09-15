@@ -43,9 +43,19 @@ export class AutomationOperationsService {
     }
 
     // 3. Provider account assignment
-    const targetAccountId = dto?.providerAccountId ?? bookingCase.providerAccountId;
+    let targetAccountId = dto?.providerAccountId ?? bookingCase.providerAccountId;
     if (!targetAccountId) {
-      throw new ProviderAccountRequiredError(caseId);
+      const defaultAccount = await prisma.providerAccount.findFirst({
+        where: {
+          providerId: bookingCase.providerRoute.providerId,
+          active: true,
+        },
+      });
+      if (defaultAccount) {
+        targetAccountId = defaultAccount.id;
+      } else {
+        throw new ProviderAccountRequiredError(caseId);
+      }
     }
 
     const account = await prisma.providerAccount.findUnique({

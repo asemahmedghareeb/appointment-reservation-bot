@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { Link } from '../../../i18n/navigation';
 import { useLocale, useTranslations } from 'next-intl';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../../lib/api/api-client';
 import { AppShell } from '../../../components/layout/app-shell';
 import { getStatusConfig } from '../../../lib/formatters/status';
@@ -19,6 +19,7 @@ import {
   ChevronRight,
   RefreshCw,
   FolderOpen,
+  Trash2,
 } from 'lucide-react';
 
 export default function LocalizedBookingsListPage() {
@@ -44,6 +45,33 @@ export default function LocalizedBookingsListPage() {
   const cases = data?.items ?? [];
   const total = data?.total ?? 0;
   const totalPages = data?.totalPages ?? 1;
+
+  const queryClient = useQueryClient();
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => api.bookingCases.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['booking-cases'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-summary'] });
+      setDeletingId(null);
+    },
+    onError: (err: any) => {
+      alert(err.message || 'Failed to delete case');
+      setDeletingId(null);
+    },
+  });
+
+  const handleDelete = (id: string, caseNumber: string) => {
+    const confirmMessage =
+      locale === 'ar'
+        ? `هل أنت متأكد من حذف الحجز ${caseNumber} نهائياً؟`
+        : `Are you sure you want to permanently delete booking ${caseNumber}?`;
+    if (window.confirm(confirmMessage)) {
+      setDeletingId(id);
+      deleteMutation.mutate(id);
+    }
+  };
 
   return (
     <AppShell>
@@ -254,15 +282,41 @@ export default function LocalizedBookingsListPage() {
                           {formatDate(c.createdAt, locale)}
                         </td>
                         <td style={{ padding: '16px 20px', textAlign: 'end' }}>
-                          <Link
-                            href={`/bookings/${c.id}`}
-                            className="btn-secondary"
-                            id={`btn-view-case-${c.id}`}
-                            style={{ padding: '6px 12px', fontSize: '0.75rem' }}
-                          >
-                            <span>{t('viewCase')}</span>
-                            <ChevronRight size={14} className="icon-directional" />
-                          </Link>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px' }}>
+                            <Link
+                              href={`/bookings/${c.id}`}
+                              className="btn-secondary"
+                              id={`btn-view-case-${c.id}`}
+                              style={{ padding: '6px 12px', fontSize: '0.75rem' }}
+                            >
+                              <span>{t('viewCase')}</span>
+                              <ChevronRight size={14} className="icon-directional" />
+                            </Link>
+                            <button
+                              type="button"
+                              onClick={() => handleDelete(c.id, c.caseNumber)}
+                              disabled={deletingId === c.id}
+                              id={`btn-delete-case-${c.id}`}
+                              title={locale === 'ar' ? 'حذف الحجز' : 'Delete Booking'}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                width: '28px',
+                                height: '28px',
+                                padding: 0,
+                                borderRadius: '6px',
+                                background: 'rgba(239, 68, 68, 0.1)',
+                                border: '1px solid rgba(239, 68, 68, 0.25)',
+                                color: '#f87171',
+                                cursor: deletingId === c.id ? 'not-allowed' : 'pointer',
+                                opacity: deletingId === c.id ? 0.5 : 1,
+                                transition: 'all 0.15s ease',
+                              }}
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );

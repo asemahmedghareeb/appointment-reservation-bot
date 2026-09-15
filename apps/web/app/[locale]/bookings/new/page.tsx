@@ -208,7 +208,7 @@ export default function LocalizedNewBookingWizardPage() {
         throw new Error('INVALID_PRIMARY_APPLICANT');
       }
 
-      // 1. Create Applicant
+      // 1. Create Applicant (or reuse if already exists)
       let applicantId: string;
       try {
         const createdApplicant = await api.applicants.create({
@@ -224,7 +224,17 @@ export default function LocalizedNewBookingWizardPage() {
         });
         applicantId = createdApplicant.id;
       } catch (err: any) {
-        throw new Error(err.message || 'Failed to create applicant');
+        // If applicant already exists with this passport, lookup and reuse
+        try {
+          const existing = await api.applicants.lookupByPassport(applicantData.passportNumber.trim().toUpperCase());
+          if (existing?.id) {
+            applicantId = existing.id;
+          } else {
+            throw err;
+          }
+        } catch {
+          throw new Error(err.message || 'Failed to create applicant');
+        }
       }
 
       // 2. Create Booking Case

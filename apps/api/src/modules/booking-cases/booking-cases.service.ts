@@ -389,4 +389,12 @@ export class BookingCasesService {
       primaryApplicantId: primaryApplicant ? primaryApplicant.applicantId : null,
     };
   }
+
+  async delete(id: string): Promise<void> {
+    const bookingCase = await this.bookingCasesRepo.findById(id);
+    if (!bookingCase) {
+      throw new BookingCaseNotFoundError(id);
+    }
+    await this.bookingCasesRepo.delete(id);
+  }
 }

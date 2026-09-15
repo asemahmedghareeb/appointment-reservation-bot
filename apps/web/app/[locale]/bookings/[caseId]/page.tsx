@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useTranslations, useLocale } from 'next-intl';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Link } from '../../../../i18n/navigation';
+import { Link, useRouter } from '../../../../i18n/navigation';
 import { api } from '../../../../lib/api/api-client';
 import { AppShell } from '../../../../components/layout/app-shell';
 import { getStatusConfig } from '../../../../lib/formatters/status';
@@ -27,6 +27,7 @@ import {
   Cpu,
   Activity,
   ArrowLeft,
+  Trash2,
 } from 'lucide-react';
 
 export default function LocalizedCaseDetailPage() {
@@ -94,6 +95,28 @@ export default function LocalizedCaseDetailPage() {
     },
     onError: (err: any) => setActionError(err.message),
   });
+
+  const router = useRouter();
+
+  const deleteMutation = useMutation({
+    mutationFn: () => api.bookingCases.delete(caseId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['booking-cases'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-summary'] });
+      router.push('/bookings');
+    },
+    onError: (err: any) => setActionError(err.message),
+  });
+
+  const handleDeleteCase = () => {
+    const confirmMessage =
+      locale === 'ar'
+        ? `هل أنت متأكد من حذف الحجز ${caseDetail?.caseNumber || ''} نهائياً؟ لا يمكن التراجع عن هذا الإجراء.`
+        : `Are you sure you want to permanently delete booking ${caseDetail?.caseNumber || ''}? This action cannot be undone.`;
+    if (window.confirm(confirmMessage)) {
+      deleteMutation.mutate();
+    }
+  };
 
   if (isLoading) {
     return (
@@ -221,6 +244,32 @@ export default function LocalizedCaseDetailPage() {
                 <span>{startAutomationMutation.isPending ? t('starting') : t('startAutomation')}</span>
               </button>
             )}
+
+            <button
+              type="button"
+              id="btn-delete-case-detail"
+              onClick={handleDeleteCase}
+              disabled={deleteMutation.isPending}
+              title={locale === 'ar' ? 'حذف الحجز نهائياً' : 'Delete Booking'}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '8px 14px',
+                fontSize: '0.85rem',
+                fontWeight: 500,
+                borderRadius: '8px',
+                backgroundColor: 'rgba(239, 68, 68, 0.12)',
+                border: '1px solid rgba(239, 68, 68, 0.3)',
+                color: '#f87171',
+                cursor: deleteMutation.isPending ? 'not-allowed' : 'pointer',
+                opacity: deleteMutation.isPending ? 0.6 : 1,
+                transition: 'all 0.15s ease',
+              }}
+            >
+              <Trash2 size={15} />
+              <span>{deleteMutation.isPending ? (locale === 'ar' ? 'جاري الحذف...' : 'Deleting...') : (locale === 'ar' ? 'حذف الحجز' : 'Delete')}</span>
+            </button>
           </div>
         </div>
 

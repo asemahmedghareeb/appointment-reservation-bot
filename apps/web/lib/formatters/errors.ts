@@ -23,6 +23,11 @@ export function getLocalizedErrorMessage(
     return catalog[errorCodeOrMessage as KnownErrorCode];
   }
 
+  // If the error message is already human-readable text from the server, return it directly
+  if (typeof errorCodeOrMessage === 'string' && errorCodeOrMessage.trim().length > 0 && !/^[A-Z0-9_]+$/.test(errorCodeOrMessage)) {
+    return errorCodeOrMessage;
+  }
+
   // Fallback to localized unexpected error rather than raw code / stack
   return fallback;
 }

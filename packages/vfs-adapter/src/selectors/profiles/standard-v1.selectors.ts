@@ -19,6 +19,7 @@ export const STANDARD_V1_SELECTORS = {
     heading: 'Appointment Availability',
     slotNotice: '.slot-notice, .availability-message, [data-testid="availability-notice"]',
     earliestSlotBadge: '.earliest-slot, [data-testid="earliest-slot"]',
-    noSlotNotice: '.no-slot-notice',
+    noSlotNotice:
+      '.no-slot-notice, :text("no appointment slots are currently available"), :text("No appointment slots are currently available"), [role="alert"]:has-text("no appointment slots")',
   },
 } as const;

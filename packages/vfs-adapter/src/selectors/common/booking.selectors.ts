@@ -6,10 +6,13 @@ export const BOOKING_SELECTORS = {
   },
   appointmentDetails: {
     heading: 'Appointment Details',
-    centreSelect: 'select[name="centre"], #applicationCentre',
-    categorySelect: 'select[name="category"], #visaCategory',
-    subcategorySelect: 'select[name="subcategory"], #visaSubcategory',
-    continueButton: 'button:has-text("Continue"), button:has-text("Next")',
+    centreSelect:
+      'mat-select[formcontrolname="centerCode"], mat-select[name="centre"], mat-select#centre, select[name="centre"], #applicationCentre',
+    categorySelect:
+      'mat-select[formcontrolname="visaCategoryCode"], mat-select[name="category"], mat-select#category, select[name="category"], #visaCategory',
+    subcategorySelect:
+      'mat-select[formcontrolname="visaSubCategoryCode"], mat-select[name="subcategory"], mat-select#subcategory, select[name="subcategory"], #visaSubcategory',
+    continueButton: 'button:has-text("Continue"), button.mat-raised-button:has-text("Continue"), button:has-text("Next")',
   },
   payment: {
     heading: 'Payment Details',

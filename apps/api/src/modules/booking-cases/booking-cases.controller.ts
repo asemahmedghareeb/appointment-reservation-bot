@@ -97,4 +97,10 @@ export class BookingCasesController {
   ): Promise<BookingCaseResponseDto> {
     return this.bookingCasesService.markReady(id, dto, userIdHeader);
   }
+
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async delete(@Param('id') id: string): Promise<void> {
+    return this.bookingCasesService.delete(id);
+  }
 }

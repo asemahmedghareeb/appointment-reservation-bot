@@ -26,15 +26,23 @@ async function fetchJson<T>(path: string, options?: RequestInit): Promise<T> {
     let errorMessage = `API Error: ${response.status} ${response.statusText}`;
     try {
       const errorBody = await response.json();
-      if (errorBody && errorBody.message) {
-        errorMessage = Array.isArray(errorBody.message)
-          ? errorBody.message.join(', ')
-          : errorBody.message;
+      if (errorBody) {
+        if (errorBody.error && errorBody.error.message) {
+          errorMessage = errorBody.error.message;
+        } else if (errorBody.message) {
+          errorMessage = Array.isArray(errorBody.message)
+            ? errorBody.message.join(', ')
+            : errorBody.message;
+        }
       }
     } catch {
       // ignore json parse error
     }
     throw new Error(errorMessage);
+  }
+
+  if (response.status === 204) {
+    return {} as T;
   }
 
   return response.json();
@@ -90,6 +98,10 @@ export const api = {
       fetchJson<any>(`/booking-cases/${caseId}/applicants`, {
         method: 'POST',
         body: JSON.stringify(data),
+      }),
+    delete: (id: string) =>
+      fetchJson<void>(`/booking-cases/${id}`, {
+        method: 'DELETE',
       }),
   },
 
@@ -183,6 +195,11 @@ export const api = {
       return fetchJson<PaginatedResult<any>>(`/applicants${qs ? `?${qs}` : ''}`);
     },
     getById: (id: string) => fetchJson<any>(`/applicants/${id}`),
+    lookupByPassport: (passportNumber: string) =>
+      fetchJson<any>('/applicants/lookup/passport', {
+        method: 'POST',
+        body: JSON.stringify({ passportNumber }),
+      }),
     create: (data: any) =>
       fetchJson<any>('/applicants', {
         method: 'POST',

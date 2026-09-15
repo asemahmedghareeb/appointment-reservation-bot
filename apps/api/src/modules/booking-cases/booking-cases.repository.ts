@@ -199,4 +199,16 @@ export class BookingCasesRepository {
       return updatedCase;
     });
   }
+
+  async delete(id: string): Promise<void> {
+    await prisma.$transaction([
+      prisma.bookingApplicant.deleteMany({ where: { bookingCaseId: id } }),
+      prisma.bookingCaseStateHistory.deleteMany({ where: { bookingCaseId: id } }),
+      prisma.activityLog.deleteMany({ where: { bookingCaseId: id } }),
+      prisma.automationSession.deleteMany({ where: { bookingCaseId: id } }),
+      prisma.paymentHandoff.deleteMany({ where: { bookingCaseId: id } }),
+      prisma.notification.deleteMany({ where: { bookingCaseId: id } }),
+      prisma.bookingCase.delete({ where: { id } }),
+    ]);
+  }
 }
