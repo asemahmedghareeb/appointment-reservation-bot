@@ -13,6 +13,7 @@ import {
   Check,
   ChevronRight,
   ChevronLeft,
+  ChevronDown,
   Calendar,
   User,
   MapPin,
@@ -20,6 +21,8 @@ import {
   ShieldCheck,
   AlertCircle,
   Sparkles,
+  Timer,
+  Zap,
 } from 'lucide-react';
 
 export default function LocalizedNewBookingWizardPage() {
@@ -68,6 +71,49 @@ export default function LocalizedNewBookingWizardPage() {
     preferredTime: 'MORNING',
     allowGroupSplit: false,
   });
+
+  // Bot Scheduling & Execution Window State
+  const [scheduleMode, setScheduleMode] = useState<'24_7' | 'CUSTOM_HOURS'>('24_7');
+  const [windowStart, setWindowStart] = useState<string>('09:00');
+  const [windowEnd, setWindowEnd] = useState<string>('17:00');
+  const [startType, setStartType] = useState<'IMMEDIATE' | 'SCHEDULED'>('IMMEDIATE');
+  const [scheduledDateTime, setScheduledDateTime] = useState<string>(
+    new Date(Date.now() + 3600000).toISOString().slice(0, 16)
+  );
+  const [durationMode, setDurationMode] = useState<'UNTIL_FOUND' | 'CUSTOM_DURATION'>('UNTIL_FOUND');
+  const [durationHours, setDurationHours] = useState<number>(4);
+  const [pollingRate, setPollingRate] = useState<'SAFE' | 'FAST' | 'RELAXED'>('SAFE');
+
+  const computedPreferredTimeString = React.useMemo(() => {
+    const parts: string[] = [];
+    if (scheduleMode === '24_7') {
+      parts.push(locale === 'ar' ? 'طوال اليوم (24/7)' : '24/7 Continuous');
+    } else {
+      parts.push(locale === 'ar' ? `ساعات العمل: من ${windowStart} إلى ${windowEnd}` : `Hours: ${windowStart} to ${windowEnd}`);
+    }
+
+    if (startType === 'SCHEDULED') {
+      parts.push(locale === 'ar' ? `بدء مجدول: ${scheduledDateTime.replace('T', ' ')}` : `Starts: ${scheduledDateTime.replace('T', ' ')}`);
+    } else {
+      parts.push(locale === 'ar' ? 'بدء فوري' : 'Immediate Start');
+    }
+
+    if (durationMode === 'CUSTOM_DURATION') {
+      parts.push(locale === 'ar' ? `المدة: ${durationHours} ساعة` : `Duration: ${durationHours}h`);
+    } else {
+      parts.push(locale === 'ar' ? 'مستمر حتى الحجز' : 'Until booked');
+    }
+
+    if (pollingRate === 'FAST') {
+      parts.push(locale === 'ar' ? 'فحص سريع (1 دقيقة)' : 'Fast (1m)');
+    } else if (pollingRate === 'RELAXED') {
+      parts.push(locale === 'ar' ? 'فحص هادئ (10 دقائق)' : 'Relaxed (10m)');
+    } else {
+      parts.push(locale === 'ar' ? 'فحص آمن (3 دقائق)' : 'Safe (3m)');
+    }
+
+    return parts.join(' • ');
+  }, [scheduleMode, windowStart, windowEnd, startType, scheduledDateTime, durationMode, durationHours, pollingRate, locale]);
 
   // Query Enabled Routes for Provider & Source Country
   const { data: routes, isLoading: routesLoading } = useQuery({
@@ -246,7 +292,7 @@ export default function LocalizedNewBookingWizardPage() {
         preferredDateTo: preferences.preferredDateTo
           ? new Date(preferences.preferredDateTo).toISOString()
           : undefined,
-        preferredTime: preferences.preferredTime,
+        preferredTime: computedPreferredTimeString,
         allowGroupSplit: preferences.allowGroupSplit,
       });
 
@@ -384,287 +430,327 @@ export default function LocalizedNewBookingWizardPage() {
 
         {/* Wizard Form Card */}
         <div className="glass-card" style={{ padding: '32px' }}>
-          {/* STEP 1: ROUTE SELECTION */}
+          {/* STEP 1: APPOINTMENT DETAILS (VFS GLOBAL STYLE) */}
           {currentStep === 1 && (
             <div id="wizard-step-1" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-              <div>
-                <h2 style={{ fontSize: '1.2rem', fontWeight: 600, color: '#f8fafc' }}>
-                  {t('step1Title')}
-                </h2>
-                <p style={{ fontSize: '0.875rem', color: '#94a3b8', marginTop: '4px' }}>
-                  {t('step1Desc')}
+              <div style={{ borderBottom: '1px solid var(--border-subtle)', paddingBottom: '20px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                  <h1 style={{ fontSize: '1.75rem', fontWeight: 700, color: '#f8fafc', letterSpacing: '-0.02em', margin: 0 }}>
+                    Appointment Details
+                  </h1>
+                  <span
+                    style={{
+                      padding: '4px 10px',
+                      borderRadius: '6px',
+                      backgroundColor: 'rgba(59, 130, 246, 0.12)',
+                      border: '1px solid rgba(59, 130, 246, 0.3)',
+                      color: '#93c5fd',
+                      fontSize: '0.75rem',
+                      fontWeight: 700,
+                      letterSpacing: '0.05em',
+                    }}
+                  >
+                    VFS.GLOBAL
+                  </span>
+                </div>
+                <p style={{ fontSize: '0.9rem', color: '#94a3b8', lineHeight: 1.6, maxWidth: '820px' }}>
+                  {locale === 'ar'
+                    ? 'يرجى تقديم معلومات حول نوع التأشيرة التي ترغب في التقدم للحصول عليها. تذكّر أن فئة الموعد التي يختارها المتقدم الأول سيتم تطبيقها على جميع المتقدمين المضافين لهذا الحجز.'
+                    : 'Please provide information about the type of visa you wish to apply for. Be aware that the appointment category Applicant 1 chooses will be applied to each of the applicants added to your appointment booking.'}
                 </p>
               </div>
 
-              {/* Provider & Source summary chips */}
-              <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-                <div
-                  style={{
-                    padding: '8px 14px',
-                    borderRadius: '8px',
-                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                    border: '1px solid rgba(59, 130, 246, 0.3)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    fontSize: '0.875rem',
-                  }}
-                >
-                  <span style={{ color: '#94a3b8' }}>{t('selectProvider')}:</span>
-                  <strong style={{ color: '#93c5fd' }}>VFS Global</strong>
-                </div>
-
-                <div
-                  style={{
-                    padding: '8px 14px',
-                    borderRadius: '8px',
-                    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-                    border: '1px solid var(--border-subtle)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    fontSize: '0.875rem',
-                  }}
-                >
-                  <span style={{ color: '#94a3b8' }}>{t('sourceCountry')}:</span>
-                  <strong style={{ color: '#f8fafc' }}>{getCountryName(sourceCountry)} ({sourceCountry})</strong>
-                </div>
-              </div>
-
               {routesLoading ? (
-                <div style={{ padding: '24px', color: '#94a3b8' }}>{tCommon('loading')}</div>
+                <div style={{ padding: '32px', color: '#94a3b8', textAlign: 'center' }}>
+                  {tCommon('loading')}
+                </div>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                  {/* Dynamic Destination Country Selection */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '22px', maxWidth: '780px' }}>
+                  {/* Dropdown 1: Choose your Destination Country */}
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#f8fafc', marginBottom: '8px' }}>
-                      {t('destinationCountry')} *
+                    <label
+                      htmlFor="select-destination-country"
+                      style={{
+                        display: 'block',
+                        fontSize: '0.925rem',
+                        fontWeight: 600,
+                        color: '#f8fafc',
+                        marginBottom: '8px',
+                      }}
+                    >
+                      {locale === 'ar' ? 'اختر دولة الوجهة' : 'Choose your Destination Country'}
+                      <span style={{ color: '#ef4444', marginLeft: '4px' }}>*</span>
                     </label>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '10px' }}>
-                      {availableDestinations.map((dest) => {
-                        const isSelected = destinationCountry === dest;
-                        return (
-                          <button
-                            key={dest}
-                            type="button"
-                            id={`destination-option-${dest}`}
-                            onClick={() => handleDestinationChange(dest)}
-                            style={{
-                              padding: '12px 16px',
-                              borderRadius: '8px',
-                              backgroundColor: isSelected ? 'rgba(59, 130, 246, 0.15)' : 'rgba(255, 255, 255, 0.03)',
-                              border: isSelected ? '2px solid #3b82f6' : '1px solid var(--border-subtle)',
-                              color: isSelected ? '#93c5fd' : '#f8fafc',
-                              fontWeight: isSelected ? 600 : 400,
-                              fontSize: '0.9rem',
-                              cursor: 'pointer',
-                              display: 'flex',
-                              justifyContent: 'space-between',
-                              alignItems: 'center',
-                              transition: 'all 0.15s ease',
-                              textAlign: 'start',
-                            }}
-                          >
-                            <span>{getCountryName(dest)}</span>
-                            <span style={{ fontSize: '0.75rem', opacity: 0.7 }}>{dest}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Progressive: Application Centre Selection */}
-                  {destinationCountry && availableCentres.length > 0 && (
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#f8fafc', marginBottom: '8px' }}>
-                        {t('applicationCentre')} *
-                      </label>
-                      <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                        {availableCentres.map((centre) => {
-                          const isSelected = applicationCentre === centre;
-                          return (
-                            <button
-                              key={centre}
-                              type="button"
-                              id={`centre-option-${centre.replace(/\s+/g, '-').toLowerCase()}`}
-                              onClick={() => handleCentreChange(centre)}
-                              style={{
-                                padding: '10px 16px',
-                                borderRadius: '8px',
-                                backgroundColor: isSelected ? 'rgba(59, 130, 246, 0.15)' : 'rgba(255, 255, 255, 0.03)',
-                                border: isSelected ? '2px solid #3b82f6' : '1px solid var(--border-subtle)',
-                                color: isSelected ? '#93c5fd' : '#f8fafc',
-                                fontWeight: isSelected ? 600 : 400,
-                                fontSize: '0.875rem',
-                                cursor: 'pointer',
-                                transition: 'all 0.15s ease',
-                              }}
-                            >
-                              {centre}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Progressive: Visa Category Selection */}
-                  {applicationCentre && availableCategories.length > 0 && (
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#f8fafc', marginBottom: '8px' }}>
-                        {t('visaCategory')} *
-                      </label>
-                      <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                        {availableCategories.map((cat) => {
-                          const isSelected = visaCategory === cat;
-                          return (
-                            <button
-                              key={cat}
-                              type="button"
-                              id={`category-option-${cat.replace(/\s+/g, '-').toLowerCase()}`}
-                              onClick={() => handleCategoryChange(cat)}
-                              style={{
-                                padding: '10px 16px',
-                                borderRadius: '8px',
-                                backgroundColor: isSelected ? 'rgba(59, 130, 246, 0.15)' : 'rgba(255, 255, 255, 0.03)',
-                                border: isSelected ? '2px solid #3b82f6' : '1px solid var(--border-subtle)',
-                                color: isSelected ? '#93c5fd' : '#f8fafc',
-                                fontWeight: isSelected ? 600 : 400,
-                                fontSize: '0.875rem',
-                                cursor: 'pointer',
-                                transition: 'all 0.15s ease',
-                              }}
-                            >
-                              {cat}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Progressive: Visa Subcategory Selection */}
-                  {visaCategory && availableSubcategories.length > 0 && (
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#f8fafc', marginBottom: '8px' }}>
-                        {t('visaSubcategory')} *
-                      </label>
-                      <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                        {availableSubcategories.map((sub) => {
-                          const isSelected = visaSubcategory === sub;
-                          return (
-                            <button
-                              key={sub}
-                              type="button"
-                              id={`subcategory-option-${sub.replace(/\s+/g, '-').toLowerCase()}`}
-                              onClick={() => handleSubcategoryChange(sub)}
-                              style={{
-                                padding: '10px 16px',
-                                borderRadius: '8px',
-                                backgroundColor: isSelected ? 'rgba(59, 130, 246, 0.15)' : 'rgba(255, 255, 255, 0.03)',
-                                border: isSelected ? '2px solid #3b82f6' : '1px solid var(--border-subtle)',
-                                color: isSelected ? '#93c5fd' : '#f8fafc',
-                                fontWeight: isSelected ? 600 : 400,
-                                fontSize: '0.875rem',
-                                cursor: 'pointer',
-                                transition: 'all 0.15s ease',
-                              }}
-                            >
-                              {sub}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Matching Route Cards */}
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#f8fafc', marginBottom: '8px' }}>
-                      {t('step1Title')}
-                    </label>
-                    {matchingRoutes.length > 0 ? (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                        {matchingRoutes.map((route: any) => {
-                          const isSelected = selectedRouteId === route.id;
-                          return (
-                            <div
-                              key={route.id}
-                              id={`route-option-${route.id}`}
-                              onClick={() => handleSelectRouteDirect(route)}
-                              style={{
-                                padding: '16px 20px',
-                                borderRadius: '10px',
-                                backgroundColor: isSelected
-                                  ? 'rgba(59, 130, 246, 0.12)'
-                                  : 'rgba(255, 255, 255, 0.02)',
-                                border: isSelected
-                                  ? '2px solid #3b82f6'
-                                  : '1px solid var(--border-subtle)',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                alignItems: 'center',
-                                transition: 'all 0.15s ease',
-                              }}
-                            >
-                              <div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                                  <span
-                                    style={{
-                                      backgroundColor: '#1e3a8a',
-                                      color: '#93c5fd',
-                                      fontSize: '0.75rem',
-                                      fontWeight: 700,
-                                      padding: '2px 8px',
-                                      borderRadius: '4px',
-                                    }}
-                                  >
-                                    {route.provider?.code || 'VFS'}
-                                  </span>
-                                  <span style={{ fontSize: '1rem', fontWeight: 600, color: '#f8fafc' }}>
-                                    {getCountryName(route.sourceCountry)} ({route.sourceCountry}) → {getCountryName(route.destinationCountry)} ({route.destinationCountry})
-                                  </span>
-                                </div>
-                                <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
-                                  {t('applicationCentre')}: {route.applicationCentre} • {t('visaCategory')}: {route.visaCategory} ({route.visaSubcategory})
-                                </span>
-                              </div>
-                              {isSelected && (
-                                <div
-                                  style={{
-                                    width: '24px',
-                                    height: '24px',
-                                    borderRadius: '50%',
-                                    backgroundColor: '#3b82f6',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    color: '#fff',
-                                  }}
-                                >
-                                  <Check size={14} />
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <div
+                    <div style={{ position: 'relative' }}>
+                      <select
+                        id="select-destination-country"
+                        value={destinationCountry}
+                        onChange={(e) => handleDestinationChange(e.target.value)}
                         style={{
-                          padding: '20px',
-                          backgroundColor: 'rgba(255,255,255,0.02)',
+                          width: '100%',
+                          padding: '14px 18px',
+                          paddingRight: locale === 'ar' ? '18px' : '44px',
+                          paddingLeft: locale === 'ar' ? '44px' : '18px',
+                          backgroundColor: '#0c1322',
+                          border: '1px solid rgba(255, 255, 255, 0.18)',
                           borderRadius: '8px',
-                          border: '1px dashed var(--border-subtle)',
-                          color: '#94a3b8',
-                          textAlign: 'center',
+                          color: destinationCountry ? '#f8fafc' : '#94a3b8',
+                          fontSize: '0.95rem',
+                          outline: 'none',
+                          appearance: 'none',
+                          cursor: 'pointer',
                         }}
                       >
-                        {t('noRoutesFound')}
-                      </div>
-                    )}
+                        <option value="" disabled style={{ backgroundColor: '#0c1322', color: '#64748b' }}>
+                          {locale === 'ar' ? 'اختر دولة الوجهة' : 'Choose your Destination Country'}
+                        </option>
+                        {availableDestinations.map((dest) => (
+                          <option key={dest} value={dest} style={{ backgroundColor: '#0c1322', color: '#f8fafc' }}>
+                            {getCountryName(dest)} ({dest})
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown
+                        size={18}
+                        style={{
+                          position: 'absolute',
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          right: locale === 'ar' ? 'auto' : '16px',
+                          left: locale === 'ar' ? '16px' : 'auto',
+                          color: '#94a3b8',
+                          pointerEvents: 'none',
+                        }}
+                      />
+                    </div>
                   </div>
+
+                  {/* Dropdown 2: Choose your Application Centre */}
+                  {destinationCountry && (
+                    <div>
+                      <div
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          marginBottom: '8px',
+                        }}
+                      >
+                        <label
+                          htmlFor="select-application-centre"
+                          style={{
+                            fontSize: '0.925rem',
+                            fontWeight: 600,
+                            color: '#f8fafc',
+                          }}
+                        >
+                          {locale === 'ar' ? 'اختر مركز التقديم' : 'Choose your Application Centre'}
+                          <span style={{ color: '#ef4444', marginLeft: '4px' }}>*</span>
+                        </label>
+                        {availableCentres.length > 0 && (
+                          <span style={{ fontSize: '0.85rem', color: '#94a3b8', fontWeight: 500 }}>
+                            {availableCentres.length} {locale === 'ar' ? 'مركز (متاح)' : 'Centre(s)'}
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ position: 'relative' }}>
+                        <select
+                          id="select-application-centre"
+                          value={applicationCentre}
+                          onChange={(e) => handleCentreChange(e.target.value)}
+                          style={{
+                            width: '100%',
+                            padding: '14px 18px',
+                            paddingRight: locale === 'ar' ? '18px' : '44px',
+                            paddingLeft: locale === 'ar' ? '44px' : '18px',
+                            backgroundColor: '#0c1322',
+                            border: '1px solid rgba(255, 255, 255, 0.18)',
+                            borderRadius: '8px',
+                            color: applicationCentre ? '#f8fafc' : '#94a3b8',
+                            fontSize: '0.95rem',
+                            outline: 'none',
+                            appearance: 'none',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          <option value="" disabled style={{ backgroundColor: '#0c1322', color: '#64748b' }}>
+                            {locale === 'ar' ? 'اختر مركز التقديم' : 'Choose your Application Centre'}
+                          </option>
+                          {availableCentres.map((centre) => (
+                            <option key={centre} value={centre} style={{ backgroundColor: '#0c1322', color: '#f8fafc' }}>
+                              {centre}
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown
+                          size={18}
+                          style={{
+                            position: 'absolute',
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            right: locale === 'ar' ? 'auto' : '16px',
+                            left: locale === 'ar' ? '16px' : 'auto',
+                            color: '#94a3b8',
+                            pointerEvents: 'none',
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Dropdown 3: Choose your appointment category */}
+                  {applicationCentre && (
+                    <div>
+                      <label
+                        htmlFor="select-appointment-category"
+                        style={{
+                          display: 'block',
+                          fontSize: '0.925rem',
+                          fontWeight: 600,
+                          color: '#f8fafc',
+                          marginBottom: '8px',
+                        }}
+                      >
+                        {locale === 'ar' ? 'اختر فئة الموعد' : 'Choose your appointment category'}
+                        <span style={{ color: '#ef4444', marginLeft: '4px' }}>*</span>
+                      </label>
+                      <div style={{ position: 'relative' }}>
+                        <select
+                          id="select-appointment-category"
+                          value={visaCategory}
+                          onChange={(e) => handleCategoryChange(e.target.value)}
+                          style={{
+                            width: '100%',
+                            padding: '14px 18px',
+                            paddingRight: locale === 'ar' ? '18px' : '44px',
+                            paddingLeft: locale === 'ar' ? '44px' : '18px',
+                            backgroundColor: '#0c1322',
+                            border: '1px solid rgba(255, 255, 255, 0.18)',
+                            borderRadius: '8px',
+                            color: visaCategory ? '#f8fafc' : '#94a3b8',
+                            fontSize: '0.95rem',
+                            outline: 'none',
+                            appearance: 'none',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          <option value="" disabled style={{ backgroundColor: '#0c1322', color: '#64748b' }}>
+                            {locale === 'ar' ? 'اختر فئة الموعد' : 'Select your appointment category'}
+                          </option>
+                          {availableCategories.map((cat) => (
+                            <option key={cat} value={cat} style={{ backgroundColor: '#0c1322', color: '#f8fafc' }}>
+                              {cat}
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown
+                          size={18}
+                          style={{
+                            position: 'absolute',
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            right: locale === 'ar' ? 'auto' : '16px',
+                            left: locale === 'ar' ? '16px' : 'auto',
+                            color: '#94a3b8',
+                            pointerEvents: 'none',
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Dropdown 4: Choose your sub-category */}
+                  {visaCategory && (
+                    <div>
+                      <label
+                        htmlFor="select-visa-subcategory"
+                        style={{
+                          display: 'block',
+                          fontSize: '0.925rem',
+                          fontWeight: 600,
+                          color: '#f8fafc',
+                          marginBottom: '8px',
+                        }}
+                      >
+                        {locale === 'ar' ? 'اختر الفئة الفرعية' : 'Choose your sub-category'}
+                        <span style={{ color: '#ef4444', marginLeft: '4px' }}>*</span>
+                      </label>
+                      <div style={{ position: 'relative' }}>
+                        <select
+                          id="select-visa-subcategory"
+                          value={visaSubcategory}
+                          onChange={(e) => handleSubcategoryChange(e.target.value)}
+                          style={{
+                            width: '100%',
+                            padding: '14px 18px',
+                            paddingRight: locale === 'ar' ? '18px' : '44px',
+                            paddingLeft: locale === 'ar' ? '44px' : '18px',
+                            backgroundColor: '#0c1322',
+                            border: '1px solid rgba(255, 255, 255, 0.18)',
+                            borderRadius: '8px',
+                            color: visaSubcategory ? '#f8fafc' : '#94a3b8',
+                            fontSize: '0.95rem',
+                            outline: 'none',
+                            appearance: 'none',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          <option value="" disabled style={{ backgroundColor: '#0c1322', color: '#64748b' }}>
+                            {locale === 'ar' ? 'اختر الفئة الفرعية' : 'Select your sub-category'}
+                          </option>
+                          {availableSubcategories.map((sub) => (
+                            <option key={sub} value={sub} style={{ backgroundColor: '#0c1322', color: '#f8fafc' }}>
+                              {sub}
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown
+                          size={18}
+                          style={{
+                            position: 'absolute',
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            right: locale === 'ar' ? 'auto' : '16px',
+                            left: locale === 'ar' ? '16px' : 'auto',
+                            color: '#94a3b8',
+                            pointerEvents: 'none',
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* VFS Slot Notification Banner when selection is complete */}
+                  {selectedRouteId && (
+                    <div
+                      id="vfs-slot-notification-banner"
+                      style={{
+                        marginTop: '12px',
+                        padding: '16px 20px',
+                        backgroundColor: 'rgba(6, 78, 59, 0.15)',
+                        border: '1px solid rgba(16, 185, 129, 0.35)',
+                        borderRadius: '8px',
+                        color: '#6ee7b7',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '6px',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600, fontSize: '0.95rem' }}>
+                        <Check size={18} style={{ color: '#10b981' }} />
+                        <span>
+                          {locale === 'ar'
+                            ? 'تم تحديد المسار بنجاح وفقاً لمعايير VFS Global الرسمية.'
+                            : 'Route configured successfully according to official VFS Global criteria.'}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '0.85rem', color: '#94a3b8', paddingLeft: locale === 'ar' ? 0 : '26px', paddingRight: locale === 'ar' ? '26px' : 0 }}>
+                        {locale === 'ar'
+                          ? 'اضغط "التالي" لمتابعة إدخال بيانات المتقدم وتفضيلات الحجز التلقائي.'
+                          : 'Click "Next" to continue with applicant details and automated monitoring preferences.'}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -839,65 +925,469 @@ export default function LocalizedNewBookingWizardPage() {
             </div>
           )}
 
-          {/* STEP 3: PREFERENCES */}
+          {/* STEP 3: PREFERENCES & BOT SCHEDULING */}
           {currentStep === 3 && (
-            <div id="wizard-step-3" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              <h2 style={{ fontSize: '1.2rem', fontWeight: 600, color: '#f8fafc' }}>
-                {t('step4Title')}
-              </h2>
-              <p style={{ fontSize: '0.875rem', color: '#94a3b8' }}>
-                {t('step4Desc')}
-              </p>
+            <div id="wizard-step-3" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+              <div>
+                <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#f8fafc' }}>
+                  {locale === 'ar' ? 'خيارات وتوقيتات عمل البوت' : 'Appointment & Bot Scheduling'}
+                </h2>
+                <p style={{ fontSize: '0.875rem', color: '#94a3b8', marginTop: '4px' }}>
+                  {locale === 'ar'
+                    ? 'حدد النطاق الزمني المستهدف للموعد، وأوقات وساعات عمل البوت، وتوقيت البدء والمدة القصوى للفحص.'
+                    : 'Configure preferred slot date range, daily active hours, start time, and monitoring duration.'}
+                </p>
+              </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', color: '#94a3b8', marginBottom: '6px' }}>
-                    {t('preferredDateFrom')}
-                  </label>
-                  <input
-                    id="input-pref-date-from"
-                    type="date"
-                    dir="ltr"
-                    value={preferences.preferredDateFrom}
-                    onChange={(e) => setPreferences({ ...preferences, preferredDateFrom: e.target.value })}
-                    style={{
-                      width: '100%',
-                      boxSizing: 'border-box',
-                      padding: '10px 14px',
-                      backgroundColor: 'var(--bg-input)',
-                      border: '1px solid var(--border-subtle)',
-                      borderRadius: '8px',
-                      color: '#f8fafc',
-                      fontSize: '0.875rem',
-                      outline: 'none',
-                      direction: 'ltr',
-                    }}
-                  />
+              {/* 1. Target Appointment Dates */}
+              <div
+                style={{
+                  padding: '20px',
+                  borderRadius: '10px',
+                  backgroundColor: 'rgba(255, 255, 255, 0.02)',
+                  border: '1px solid var(--border-subtle)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '14px',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Calendar size={18} style={{ color: '#38bdf8' }} />
+                  <span style={{ fontSize: '0.95rem', fontWeight: 600, color: '#f8fafc' }}>
+                    {locale === 'ar' ? 'نطاق الموعد المستهدف (Target Dates)' : 'Target Appointment Dates'}
+                  </span>
                 </div>
 
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', color: '#94a3b8', marginBottom: '6px' }}>
-                    {t('preferredDateTo')}
-                  </label>
-                  <input
-                    id="input-pref-date-to"
-                    type="date"
-                    dir="ltr"
-                    value={preferences.preferredDateTo}
-                    onChange={(e) => setPreferences({ ...preferences, preferredDateTo: e.target.value })}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', color: '#94a3b8', marginBottom: '6px' }}>
+                      {t('preferredDateFrom')} *
+                    </label>
+                    <input
+                      id="input-pref-date-from"
+                      type="date"
+                      dir="ltr"
+                      required
+                      value={preferences.preferredDateFrom}
+                      onChange={(e) => setPreferences({ ...preferences, preferredDateFrom: e.target.value })}
+                      style={{
+                        width: '100%',
+                        boxSizing: 'border-box',
+                        padding: '12px 14px',
+                        backgroundColor: 'var(--bg-input)',
+                        border: '1px solid var(--border-subtle)',
+                        borderRadius: '8px',
+                        color: '#f8fafc',
+                        fontSize: '0.9rem',
+                        outline: 'none',
+                        direction: 'ltr',
+                      }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', color: '#94a3b8', marginBottom: '6px' }}>
+                      {t('preferredDateTo')} *
+                    </label>
+                    <input
+                      id="input-pref-date-to"
+                      type="date"
+                      dir="ltr"
+                      required
+                      value={preferences.preferredDateTo}
+                      onChange={(e) => setPreferences({ ...preferences, preferredDateTo: e.target.value })}
+                      style={{
+                        width: '100%',
+                        boxSizing: 'border-box',
+                        padding: '12px 14px',
+                        backgroundColor: 'var(--bg-input)',
+                        border: '1px solid var(--border-subtle)',
+                        borderRadius: '8px',
+                        color: '#f8fafc',
+                        fontSize: '0.9rem',
+                        outline: 'none',
+                        direction: 'ltr',
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* 2. Daily Bot Active Hours (ساعات عمل البوت اليومية) */}
+              <div
+                style={{
+                  padding: '20px',
+                  borderRadius: '10px',
+                  backgroundColor: 'rgba(255, 255, 255, 0.02)',
+                  border: '1px solid var(--border-subtle)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '16px',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Clock size={18} style={{ color: '#818cf8' }} />
+                    <span style={{ fontSize: '0.95rem', fontWeight: 600, color: '#f8fafc' }}>
+                      {locale === 'ar' ? 'أوقات وساعات عمل البوت اليومية (Daily Window)' : 'Daily Bot Active Window'}
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '8px', backgroundColor: 'rgba(255, 255, 255, 0.04)', padding: '4px', borderRadius: '8px' }}>
+                    <button
+                      type="button"
+                      onClick={() => setScheduleMode('24_7')}
+                      style={{
+                        padding: '6px 14px',
+                        borderRadius: '6px',
+                        fontSize: '0.8rem',
+                        fontWeight: 600,
+                        backgroundColor: scheduleMode === '24_7' ? '#4f46e5' : 'transparent',
+                        color: scheduleMode === '24_7' ? '#fff' : '#94a3b8',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      {locale === 'ar' ? 'طوال اليوم (24/7)' : '24/7 Continuous'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setScheduleMode('CUSTOM_HOURS')}
+                      style={{
+                        padding: '6px 14px',
+                        borderRadius: '6px',
+                        fontSize: '0.8rem',
+                        fontWeight: 600,
+                        backgroundColor: scheduleMode === 'CUSTOM_HOURS' ? '#4f46e5' : 'transparent',
+                        color: scheduleMode === 'CUSTOM_HOURS' ? '#fff' : '#94a3b8',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      {locale === 'ar' ? 'ساعات محددة (من - إلى)' : 'Custom Hours'}
+                    </button>
+                  </div>
+                </div>
+
+                {scheduleMode === 'CUSTOM_HOURS' && (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', paddingTop: '8px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.8rem', color: '#94a3b8', marginBottom: '6px' }}>
+                        {locale === 'ar' ? 'من الساعة (Start Time)' : 'From Time'}
+                      </label>
+                      <input
+                        type="time"
+                        dir="ltr"
+                        value={windowStart}
+                        onChange={(e) => setWindowStart(e.target.value)}
+                        style={{
+                          width: '100%',
+                          boxSizing: 'border-box',
+                          padding: '10px 14px',
+                          backgroundColor: 'var(--bg-input)',
+                          border: '1px solid var(--border-subtle)',
+                          borderRadius: '8px',
+                          color: '#f8fafc',
+                          fontSize: '0.9rem',
+                          outline: 'none',
+                          direction: 'ltr',
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.8rem', color: '#94a3b8', marginBottom: '6px' }}>
+                        {locale === 'ar' ? 'إلى الساعة (End Time)' : 'To Time'}
+                      </label>
+                      <input
+                        type="time"
+                        dir="ltr"
+                        value={windowEnd}
+                        onChange={(e) => setWindowEnd(e.target.value)}
+                        style={{
+                          width: '100%',
+                          boxSizing: 'border-box',
+                          padding: '10px 14px',
+                          backgroundColor: 'var(--bg-input)',
+                          border: '1px solid var(--border-subtle)',
+                          borderRadius: '8px',
+                          color: '#f8fafc',
+                          fontSize: '0.9rem',
+                          outline: 'none',
+                          direction: 'ltr',
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 3. Execution Start Timing (توقيت بدء التشغيل) */}
+              <div
+                style={{
+                  padding: '20px',
+                  borderRadius: '10px',
+                  backgroundColor: 'rgba(255, 255, 255, 0.02)',
+                  border: '1px solid var(--border-subtle)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '16px',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Timer size={18} style={{ color: '#34d399' }} />
+                    <span style={{ fontSize: '0.95rem', fontWeight: 600, color: '#f8fafc' }}>
+                      {locale === 'ar' ? 'توقيت بدء عمل البوت (Start Timing)' : 'Execution Start Timing'}
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '8px', backgroundColor: 'rgba(255, 255, 255, 0.04)', padding: '4px', borderRadius: '8px' }}>
+                    <button
+                      type="button"
+                      onClick={() => setStartType('IMMEDIATE')}
+                      style={{
+                        padding: '6px 14px',
+                        borderRadius: '6px',
+                        fontSize: '0.8rem',
+                        fontWeight: 600,
+                        backgroundColor: startType === 'IMMEDIATE' ? '#059669' : 'transparent',
+                        color: startType === 'IMMEDIATE' ? '#fff' : '#94a3b8',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      {locale === 'ar' ? 'البدء فوراً' : 'Immediate'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setStartType('SCHEDULED')}
+                      style={{
+                        padding: '6px 14px',
+                        borderRadius: '6px',
+                        fontSize: '0.8rem',
+                        fontWeight: 600,
+                        backgroundColor: startType === 'SCHEDULED' ? '#059669' : 'transparent',
+                        color: startType === 'SCHEDULED' ? '#fff' : '#94a3b8',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      {locale === 'ar' ? 'بدء مجدول في وقت محدد' : 'Scheduled Start'}
+                    </button>
+                  </div>
+                </div>
+
+                {startType === 'SCHEDULED' && (
+                  <div style={{ paddingTop: '8px' }}>
+                    <label style={{ display: 'block', fontSize: '0.8rem', color: '#94a3b8', marginBottom: '6px' }}>
+                      {locale === 'ar' ? 'حدد اليوم والساعة بالدقيقة لبدء العمل:' : 'Select exact date & time to launch:'}
+                    </label>
+                    <input
+                      type="datetime-local"
+                      dir="ltr"
+                      value={scheduledDateTime}
+                      onChange={(e) => setScheduledDateTime(e.target.value)}
+                      style={{
+                        width: '100%',
+                        maxWidth: '380px',
+                        boxSizing: 'border-box',
+                        padding: '12px 14px',
+                        backgroundColor: 'var(--bg-input)',
+                        border: '1px solid var(--border-subtle)',
+                        borderRadius: '8px',
+                        color: '#f8fafc',
+                        fontSize: '0.9rem',
+                        outline: 'none',
+                        direction: 'ltr',
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* 4. Execution Duration (مدة تشغيل البوت القصوى) */}
+              <div
+                style={{
+                  padding: '20px',
+                  borderRadius: '10px',
+                  backgroundColor: 'rgba(255, 255, 255, 0.02)',
+                  border: '1px solid var(--border-subtle)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '16px',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Zap size={18} style={{ color: '#fbbf24' }} />
+                    <span style={{ fontSize: '0.95rem', fontWeight: 600, color: '#f8fafc' }}>
+                      {locale === 'ar' ? 'مدة عمل البوت القصوى (Monitoring Duration)' : 'Monitoring Duration'}
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '8px', backgroundColor: 'rgba(255, 255, 255, 0.04)', padding: '4px', borderRadius: '8px' }}>
+                    <button
+                      type="button"
+                      onClick={() => setDurationMode('UNTIL_FOUND')}
+                      style={{
+                        padding: '6px 14px',
+                        borderRadius: '6px',
+                        fontSize: '0.8rem',
+                        fontWeight: 600,
+                        backgroundColor: durationMode === 'UNTIL_FOUND' ? '#d97706' : 'transparent',
+                        color: durationMode === 'UNTIL_FOUND' ? '#fff' : '#94a3b8',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      {locale === 'ar' ? 'مستمر حتى الحجز' : 'Until Booked'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDurationMode('CUSTOM_DURATION')}
+                      style={{
+                        padding: '6px 14px',
+                        borderRadius: '6px',
+                        fontSize: '0.8rem',
+                        fontWeight: 600,
+                        backgroundColor: durationMode === 'CUSTOM_DURATION' ? '#d97706' : 'transparent',
+                        color: durationMode === 'CUSTOM_DURATION' ? '#fff' : '#94a3b8',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      {locale === 'ar' ? 'مدة محددة بالساعات' : 'Specific Duration'}
+                    </button>
+                  </div>
+                </div>
+
+                {durationMode === 'CUSTOM_DURATION' && (
+                  <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', paddingTop: '8px' }}>
+                    {[1, 2, 4, 8, 12, 24].map((hours) => {
+                      const isSelected = durationHours === hours;
+                      return (
+                        <button
+                          key={hours}
+                          type="button"
+                          onClick={() => setDurationHours(hours)}
+                          style={{
+                            padding: '8px 16px',
+                            borderRadius: '8px',
+                            backgroundColor: isSelected ? 'rgba(245, 158, 11, 0.2)' : 'rgba(255, 255, 255, 0.03)',
+                            border: isSelected ? '2px solid #f59e0b' : '1px solid var(--border-subtle)',
+                            color: isSelected ? '#fcd34d' : '#f8fafc',
+                            fontWeight: isSelected ? 600 : 400,
+                            fontSize: '0.85rem',
+                            cursor: 'pointer',
+                            transition: 'all 0.15s ease',
+                          }}
+                        >
+                          {hours} {locale === 'ar' ? (hours === 1 ? 'ساعة' : hours === 2 ? 'ساعتان' : 'ساعات') : 'Hours'}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* 5. Polling Rate (معدل سرعة الفحص) */}
+              <div
+                style={{
+                  padding: '20px',
+                  borderRadius: '10px',
+                  backgroundColor: 'rgba(255, 255, 255, 0.02)',
+                  border: '1px solid var(--border-subtle)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '12px',
+                }}
+              >
+                <span style={{ fontSize: '0.95rem', fontWeight: 600, color: '#f8fafc' }}>
+                  {locale === 'ar' ? 'معدل وتكرار الفحص (Polling Rate)' : 'Monitoring Frequency'}
+                </span>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setPollingRate('SAFE')}
                     style={{
-                      width: '100%',
-                      boxSizing: 'border-box',
-                      padding: '10px 14px',
-                      backgroundColor: 'var(--bg-input)',
-                      border: '1px solid var(--border-subtle)',
+                      padding: '12px 16px',
                       borderRadius: '8px',
-                      color: '#f8fafc',
-                      fontSize: '0.875rem',
-                      outline: 'none',
-                      direction: 'ltr',
+                      backgroundColor: pollingRate === 'SAFE' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255, 255, 255, 0.02)',
+                      border: pollingRate === 'SAFE' ? '2px solid #10b981' : '1px solid var(--border-subtle)',
+                      textAlign: 'start',
+                      cursor: 'pointer',
                     }}
-                  />
+                  >
+                    <div style={{ fontWeight: 600, color: pollingRate === 'SAFE' ? '#6ee7b7' : '#f8fafc', fontSize: '0.9rem' }}>
+                      {locale === 'ar' ? '🛡️ فحص آمن (كل 3 دقائق)' : '🛡️ Safe Mode (3 min)'}
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '4px' }}>
+                      {locale === 'ar' ? 'موصى به لتفادي أي حظر أو كشف من VFS' : 'Recommended for rate limit safety'}
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setPollingRate('FAST')}
+                    style={{
+                      padding: '12px 16px',
+                      borderRadius: '8px',
+                      backgroundColor: pollingRate === 'FAST' ? 'rgba(59, 130, 246, 0.15)' : 'rgba(255, 255, 255, 0.02)',
+                      border: pollingRate === 'FAST' ? '2px solid #3b82f6' : '1px solid var(--border-subtle)',
+                      textAlign: 'start',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <div style={{ fontWeight: 600, color: pollingRate === 'FAST' ? '#93c5fd' : '#f8fafc', fontSize: '0.9rem' }}>
+                      {locale === 'ar' ? '⚡ فحص سريع (كل 1 دقيقة)' : '⚡ Fast Mode (1 min)'}
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '4px' }}>
+                      {locale === 'ar' ? 'لاقتناص المواعيد اللحظية فور فتحها' : 'High frequency for competitive slots'}
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setPollingRate('RELAXED')}
+                    style={{
+                      padding: '12px 16px',
+                      borderRadius: '8px',
+                      backgroundColor: pollingRate === 'RELAXED' ? 'rgba(148, 163, 184, 0.15)' : 'rgba(255, 255, 255, 0.02)',
+                      border: pollingRate === 'RELAXED' ? '2px solid #94a3b8' : '1px solid var(--border-subtle)',
+                      textAlign: 'start',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <div style={{ fontWeight: 600, color: pollingRate === 'RELAXED' ? '#cbd5e1' : '#f8fafc', fontSize: '0.9rem' }}>
+                      {locale === 'ar' ? '☕ فحص هادئ (كل 10 دقائق)' : '☕ Relaxed (10 min)'}
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '4px' }}>
+                      {locale === 'ar' ? 'استهلاك خفيف جداً لموارد الخادم' : 'Minimal server/session footprint'}
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              {/* 6. Live Preview of Bot Plan */}
+              <div
+                style={{
+                  padding: '16px 20px',
+                  backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                  border: '1px solid rgba(59, 130, 246, 0.3)',
+                  borderRadius: '10px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                }}
+              >
+                <Sparkles size={20} style={{ color: '#60a5fa', flexShrink: 0 }} />
+                <div>
+                  <div style={{ fontSize: '0.8rem', color: '#93c5fd', fontWeight: 600, textTransform: 'uppercase' }}>
+                    {locale === 'ar' ? 'ملخص خطة عمل البوت:' : 'Configured Bot Execution Plan:'}
+                  </div>
+                  <div style={{ fontSize: '0.95rem', color: '#f8fafc', fontWeight: 500, marginTop: '2px' }}>
+                    {computedPreferredTimeString}
+                  </div>
                 </div>
               </div>
             </div>
@@ -976,10 +1466,13 @@ export default function LocalizedNewBookingWizardPage() {
                   }}
                 >
                   <span style={{ fontSize: '0.75rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 600 }}>
-                    {t('step4Title')}
+                    {locale === 'ar' ? 'الموعد وجدولة البوت' : t('step4Title')}
                   </span>
                   <div style={{ fontSize: '1rem', fontWeight: 600, color: '#f8fafc', marginTop: '2px' }}>
                     <TechnicalText>{preferences.preferredDateFrom}</TechnicalText> → <TechnicalText>{preferences.preferredDateTo}</TechnicalText>
+                  </div>
+                  <div style={{ fontSize: '0.85rem', color: '#38bdf8', marginTop: '6px', fontWeight: 500 }}>
+                    🤖 {computedPreferredTimeString}
                   </div>
                 </div>
               </div>
@@ -1014,9 +1507,14 @@ export default function LocalizedNewBookingWizardPage() {
             {currentStep < 4 ? (
               <button
                 type="button"
+                disabled={currentStep === 1 && !selectedRouteId}
                 onClick={() => setCurrentStep((s) => s + 1)}
                 className="btn-primary"
                 id="btn-wizard-next"
+                style={{
+                  opacity: currentStep === 1 && !selectedRouteId ? 0.5 : 1,
+                  cursor: currentStep === 1 && !selectedRouteId ? 'not-allowed' : 'pointer',
+                }}
               >
                 <span>{tCommon('next')}</span>
                 <ChevronRight size={16} className="icon-directional" />
