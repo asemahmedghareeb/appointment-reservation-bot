@@ -189,10 +189,16 @@ export default function LocalizedDashboardPage() {
                 ) : (
                   <XCircle size={14} />
                 )}
-                {vfsHealth.status}
+                <span>
+                  {vfsHealth.status === 'HEALTHY'
+                    ? t('statusHealthy')
+                    : vfsHealth.status === 'DEGRADED'
+                    ? t('statusDegraded')
+                    : t('statusOffline')}
+                </span>
                 {vfsHealth.activeSessions > 0 && (
                   <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 400 }}>
-                    ({formatNumber(vfsHealth.activeSessions, locale)} active)
+                    ({formatNumber(vfsHealth.activeSessions, locale)} {t('activeSessions')})
                   </span>
                 )}
               </span>
@@ -215,32 +221,43 @@ export default function LocalizedDashboardPage() {
           >
             <BarChart2 size={16} color="#94a3b8" />
             <span style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 500 }}>{t('queueHealth')}</span>
-            {Object.entries(queueHealth).map(([name, info]: [string, any]) => (
-              <span
-                key={name}
-                id={`queue-depth-${name}`}
-                style={{
-                  fontSize: '0.78rem',
-                  color: info.failed > 10 ? '#ef4444' : '#64748b',
-                  backgroundColor: 'rgba(255,255,255,0.04)',
-                  padding: '2px 8px',
-                  borderRadius: '4px',
-                  display: 'flex',
-                  gap: '4px',
-                  alignItems: 'center',
-                }}
-              >
-                <span style={{ color: '#94a3b8' }}>{name.replace(/-/g, ' ')}:</span>
-                <span style={{ color: '#e2e8f0', fontWeight: 600 }}>
-                  {formatNumber(info.waiting, locale)}W / {formatNumber(info.active, locale)}A
-                </span>
-                {info.failed > 0 && (
-                  <span style={{ color: '#ef4444', fontWeight: 700 }}>
-                    {formatNumber(info.failed, locale)}F
+            {Object.entries(queueHealth).map(([name, info]: [string, any]) => {
+              const queueLabel =
+                name === 'availability-check'
+                  ? t('queueAvailabilityCheck')
+                  : name === 'booking-execution'
+                  ? t('queueBookingExecution')
+                  : name === 'session-resume'
+                  ? t('queueSessionResume')
+                  : name.replace(/-/g, ' ');
+
+              return (
+                <span
+                  key={name}
+                  id={`queue-depth-${name}`}
+                  style={{
+                    fontSize: '0.78rem',
+                    color: info.failed > 10 ? '#ef4444' : '#64748b',
+                    backgroundColor: 'rgba(255,255,255,0.04)',
+                    padding: '2px 8px',
+                    borderRadius: '4px',
+                    display: 'inline-flex',
+                    gap: '6px',
+                    alignItems: 'center',
+                  }}
+                >
+                  <span style={{ color: '#94a3b8' }}>{queueLabel}:</span>
+                  <span dir="ltr" style={{ color: '#e2e8f0', fontWeight: 600, display: 'inline-block' }}>
+                    {formatNumber(info.waiting, locale)} {t('waitingJobsShort')} / {formatNumber(info.active, locale)} {t('activeJobsShort')}
                   </span>
-                )}
-              </span>
-            ))}
+                  {info.failed > 0 && (
+                    <span dir="ltr" style={{ color: '#ef4444', fontWeight: 700, display: 'inline-block' }}>
+                      {formatNumber(info.failed, locale)} {t('failedJobsShort')}
+                    </span>
+                  )}
+                </span>
+              );
+            })}
             {Object.keys(queueHealth).length === 0 && (
               <span style={{ fontSize: '0.78rem', color: '#64748b' }}>—</span>
             )}
