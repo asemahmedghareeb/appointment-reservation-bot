@@ -368,6 +368,7 @@ describe('VFS Multi-Country Expansion (Phase 3.1 Matrix)', { timeout: 35000 }, (
 
     // 8. Human completes payment
     server.paymentCompleted = true;
+    await adapter.getPaymentState(ctx);
     const confirmRes = await adapter.getConfirmation(ctx);
     expect(confirmRes.kind).toBe('SUCCESS');
     if (confirmRes.kind === 'SUCCESS') {
