@@ -1,14 +1,18 @@
 'use client';
 
 import React from 'react';
-import Link from 'next/link';
+import { Link } from '../../i18n/navigation';
+import { useTranslations } from 'next-intl';
 import { useOperationsEvents } from '../../lib/realtime/use-sse';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../lib/api/api-client';
 import { Bell, Radio, Plus } from 'lucide-react';
+import { LanguageSwitcher } from '../locale/language-switcher';
 
 export function Topbar() {
   const { isConnected } = useOperationsEvents();
+  const tCommon = useTranslations('common');
+  const tNav = useTranslations('navigation');
 
   const { data: notificationsData } = useQuery({
     queryKey: ['notifications', { unreadOnly: true }],
@@ -36,9 +40,13 @@ export function Topbar() {
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-        <span style={{ fontSize: '0.875rem', color: '#94a3b8' }}>Operations Console</span>
+        <span style={{ fontSize: '0.875rem', color: '#94a3b8' }}>
+          {tCommon('operationsConsole')}
+        </span>
         <span style={{ color: 'rgba(255,255,255,0.15)' }}>/</span>
-        <span style={{ fontSize: '0.875rem', fontWeight: 600, color: '#f8fafc' }}>Real-Time Control</span>
+        <span style={{ fontSize: '0.875rem', fontWeight: 600, color: '#f8fafc' }}>
+          {tCommon('realTimeControl')}
+        </span>
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
@@ -58,18 +66,8 @@ export function Topbar() {
             color: isConnected ? '#34d399' : '#fbbf24',
           }}
         >
-          <span
-            className={isConnected ? 'pulse-dot' : ''}
-            style={{
-              width: '8px',
-              height: '8px',
-              borderRadius: '50%',
-              backgroundColor: isConnected ? '#10b981' : '#f59e0b',
-              display: 'inline-block',
-            }}
-          />
-          <Radio size={12} />
-          <span>{isConnected ? 'LIVE (SSE Connected)' : 'Connecting stream...'}</span>
+          <Radio size={12} className={isConnected ? 'animate-pulse' : ''} />
+          <span>{isConnected ? tCommon('liveConnected') : tCommon('disconnected')}</span>
         </div>
 
         {/* Notifications Icon Button */}
@@ -78,29 +76,30 @@ export function Topbar() {
           id="btn-topbar-notifications"
           style={{
             position: 'relative',
-            width: '36px',
-            height: '36px',
-            borderRadius: '8px',
-            backgroundColor: 'rgba(255,255,255,0.05)',
-            border: '1px solid var(--border-subtle)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
+            width: '38px',
+            height: '38px',
+            borderRadius: '8px',
+            backgroundColor: 'rgba(255, 255, 255, 0.05)',
+            border: '1px solid var(--border-subtle)',
             color: '#94a3b8',
             transition: 'all 0.15s ease',
           }}
+          aria-label={tNav('notifications')}
         >
           <Bell size={18} />
           {unreadCount > 0 && (
             <span
-              id="notifications-badge-count"
+              id="topbar-unread-badge"
               style={{
                 position: 'absolute',
                 top: '-4px',
                 right: '-4px',
                 backgroundColor: '#ef4444',
                 color: '#fff',
-                fontSize: '0.65rem',
+                fontSize: '0.6875rem',
                 fontWeight: 700,
                 width: '18px',
                 height: '18px',
@@ -108,7 +107,7 @@ export function Topbar() {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                boxShadow: '0 2px 6px rgba(239, 68, 68, 0.5)',
+                border: '2px solid var(--bg-app)',
               }}
             >
               {unreadCount > 9 ? '9+' : unreadCount}
@@ -116,15 +115,18 @@ export function Topbar() {
           )}
         </Link>
 
-        {/* New Case Button */}
+        {/* Language Switcher */}
+        <LanguageSwitcher />
+
+        {/* Quick New Booking Button */}
         <Link
           href="/bookings/new"
-          id="btn-topbar-new-case"
+          id="btn-topbar-new-booking"
           className="btn-primary"
-          style={{ padding: '6px 14px', fontSize: '0.8rem' }}
+          style={{ height: '36px', padding: '0 14px', fontSize: '0.8125rem' }}
         >
           <Plus size={15} />
-          <span>New Case</span>
+          <span>{tNav('newBooking')}</span>
         </Link>
       </div>
     </header>

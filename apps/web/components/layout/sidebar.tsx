@@ -1,8 +1,8 @@
 'use client';
 
 import React from 'react';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { Link, usePathname } from '../../i18n/navigation';
+import { useTranslations } from 'next-intl';
 import {
   LayoutDashboard,
   CalendarDays,
@@ -11,17 +11,23 @@ import {
   Layers,
   PlusCircle,
   FileCheck2,
+  Users,
+  UserCheck,
 } from 'lucide-react';
-
-const NAV_ITEMS = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/bookings', label: 'Booking Cases', icon: CalendarDays },
-  { href: '/attention', label: 'Need Attention', icon: AlertTriangle, highlight: true },
-  { href: '/notifications', label: 'Notifications', icon: Bell },
-];
 
 export function Sidebar() {
   const pathname = usePathname();
+  const tNav = useTranslations('navigation');
+  const tCommon = useTranslations('common');
+
+  const navItems = [
+    { href: '/dashboard', label: tNav('dashboard'), icon: LayoutDashboard },
+    { href: '/bookings', label: tNav('bookings'), icon: CalendarDays },
+    { href: '/clients', label: tNav('clients'), icon: Users },
+    { href: '/applicants', label: tNav('applicants'), icon: UserCheck },
+    { href: '/attention', label: tNav('attention'), icon: AlertTriangle, highlight: true },
+    { href: '/notifications', label: tNav('notifications'), icon: Bell },
+  ];
 
   return (
     <aside
@@ -29,7 +35,7 @@ export function Sidebar() {
       style={{
         width: '260px',
         backgroundColor: 'var(--bg-sidebar)',
-        borderRight: '1px solid var(--border-subtle)',
+        borderInlineEnd: '1px solid var(--border-subtle)',
         display: 'flex',
         flexDirection: 'column',
         height: '100vh',
@@ -84,7 +90,7 @@ export function Sidebar() {
               fontWeight: 600,
             }}
           >
-            Operations Suite
+            {tCommon('operationsConsole')}
           </span>
         </div>
       </div>
@@ -98,13 +104,13 @@ export function Sidebar() {
           style={{ width: '100%', boxSizing: 'border-box' }}
         >
           <PlusCircle size={16} />
-          <span>New Booking</span>
+          <span>{tNav('newBooking')}</span>
         </Link>
       </div>
 
       {/* Main Navigation */}
       <nav style={{ flex: 1, padding: '12px 12px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-        {NAV_ITEMS.map((item) => {
+        {navItems.map((item) => {
           const isActive =
             item.href === '/dashboard'
               ? pathname === '/dashboard' || pathname === '/'
@@ -115,7 +121,7 @@ export function Sidebar() {
             <Link
               key={item.href}
               href={item.href}
-              id={`nav-link-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
+              id={`nav-link-${item.href.replace(/\//g, '')}`}
               style={{
                 display: 'flex',
                 alignItems: 'center',
