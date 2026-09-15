@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node --env-file=../../.env --import tsx --watch src/main.ts",
+    "dev": "tsc && concurrently -k \"tsc -w --preserveWatchOutput\" \"node --env-file=../../.env --watch dist/main.js\",
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "start": "node dist/main.js",
@@ -31,6 +31,7 @@
   "devDependencies": {
     "@types/express": "^5.0.0",
     "@types/node": "^22.13.9",
+    "concurrently": "^10.0.5",
     "tsx": "^4.19.3",
     "typescript": "^5.8.2",
     "vitest": "^3.0.8"
