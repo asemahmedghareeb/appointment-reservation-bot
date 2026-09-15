@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsc && concurrently -k \"tsc -w --preserveWatchOutput\" \"node --env-file=../../.env --watch dist/main.js\",
+    "dev": "tsc && concurrently -k \"tsc -w --preserveWatchOutput\" \"node --env-file=../../.env --watch dist/main.js\"",
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "start": "node dist/main.js",
