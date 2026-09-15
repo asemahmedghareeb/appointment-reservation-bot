@@ -6,6 +6,7 @@ import { NextIntlClientProvider } from 'next-intl';
 import { Inter, Noto_Sans_Arabic } from 'next/font/google';
 import { locales, isValidLocale, type Locale } from '../../i18n/config';
 import { AppProviders } from '../../providers/app-providers';
+import '../globals.css';
 
 const inter = Inter({
   subsets: ['latin'],
