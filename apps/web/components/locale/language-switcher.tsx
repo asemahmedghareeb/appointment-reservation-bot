@@ -3,7 +3,6 @@
 import React from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { usePathname, useRouter } from '../../i18n/navigation';
-import { useSearchParams } from 'next/navigation';
 import { Globe } from 'lucide-react';
 import { LOCALE_COOKIE, type Locale } from '../../i18n/config';
 
@@ -12,7 +11,6 @@ export function LanguageSwitcher() {
   const t = useTranslations('common');
   const pathname = usePathname();
   const router = useRouter();
-  const searchParams = useSearchParams();
 
   const targetLocale: Locale = currentLocale === 'en' ? 'ar' : 'en';
   const label = currentLocale === 'en' ? 'العربية' : 'English';
@@ -21,9 +19,9 @@ export function LanguageSwitcher() {
     // Persist cookie
     document.cookie = `${LOCALE_COOKIE}=${targetLocale}; path=/; max-age=31536000; SameSite=Lax`;
 
-    // Preserve query string
-    const query = searchParams.toString();
-    const targetUrl = query ? `${pathname}?${query}` : pathname;
+    // Preserve query string from window.location if present
+    const search = typeof window !== 'undefined' ? window.location.search : '';
+    const targetUrl = search ? `${pathname}${search}` : pathname;
 
     // Navigate with target locale
     router.replace(targetUrl, { locale: targetLocale });

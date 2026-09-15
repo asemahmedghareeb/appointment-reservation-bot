@@ -138,8 +138,16 @@ export const api = {
   },
 
   clients: {
-    list: () => fetchJson<PaginatedResult<any>>('/clients'),
-    create: (data: any) =>
+    list: (params?: { page?: number | undefined; limit?: number | undefined; search?: string | undefined } | undefined) => {
+      const query = new URLSearchParams();
+      if (params?.page) query.set('page', String(params.page));
+      if (params?.limit) query.set('limit', String(params.limit));
+      if (params?.search) query.set('search', params.search);
+      const qs = query.toString();
+      return fetchJson<PaginatedResult<any>>(`/clients${qs ? `?${qs}` : ''}`);
+    },
+    getById: (id: string) => fetchJson<any>(`/clients/${id}`),
+    create: (data: { name: string; email?: string | undefined; phone?: string | undefined }) =>
       fetchJson<any>('/clients', {
         method: 'POST',
         body: JSON.stringify(data),
@@ -147,6 +155,15 @@ export const api = {
   },
 
   applicants: {
+    list: (params?: { page?: number | undefined; limit?: number | undefined; search?: string | undefined } | undefined) => {
+      const query = new URLSearchParams();
+      if (params?.page) query.set('page', String(params.page));
+      if (params?.limit) query.set('limit', String(params.limit));
+      if (params?.search) query.set('search', params.search);
+      const qs = query.toString();
+      return fetchJson<PaginatedResult<any>>(`/applicants${qs ? `?${qs}` : ''}`);
+    },
+    getById: (id: string) => fetchJson<any>(`/applicants/${id}`),
     create: (data: any) =>
       fetchJson<any>('/applicants', {
         method: 'POST',

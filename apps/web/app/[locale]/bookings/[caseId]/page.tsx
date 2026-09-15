@@ -2,11 +2,15 @@
 
 import React, { useState } from 'react';
 import { useParams } from 'next/navigation';
+import { useTranslations, useLocale } from 'next-intl';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '../../../lib/api/api-client';
-import { AppShell } from '../../../components/layout/app-shell';
-import { getStatusConfig } from '../../../lib/formatters/status';
-import { formatDate, formatDateTime, formatRelativeTime } from '../../../lib/formatters/dates';
+import { Link } from '../../../../i18n/navigation';
+import { api } from '../../../../lib/api/api-client';
+import { AppShell } from '../../../../components/layout/app-shell';
+import { getStatusConfig } from '../../../../lib/formatters/status';
+import { formatDate, formatDateTime, formatRelativeTime } from '../../../../lib/formatters/dates';
+import { formatCurrency } from '../../../../lib/formatters/numbers';
+import { TechnicalText } from '../../../../components/ui/technical-text';
 import { BookingCaseStatus } from '@visaflow/shared-types';
 import {
   Play,
@@ -15,7 +19,6 @@ import {
   CreditCard,
   CheckCircle2,
   Users,
-  Clock,
   ExternalLink,
   RefreshCw,
   Send,
@@ -23,11 +26,16 @@ import {
   Lock,
   Cpu,
   Activity,
+  ArrowLeft,
 } from 'lucide-react';
 
-export default function CaseDetailPage() {
+export default function LocalizedCaseDetailPage() {
   const params = useParams();
   const caseId = params?.caseId as string;
+  const locale = useLocale();
+  const t = useTranslations('caseDetail');
+  const tCommon = useTranslations('common');
+  const tStatus = useTranslations('statuses');
   const queryClient = useQueryClient();
 
   // Challenge resolution form state
@@ -90,8 +98,8 @@ export default function CaseDetailPage() {
   if (isLoading) {
     return (
       <AppShell>
-        <div style={{ padding: '60px', textAlign: 'center', color: '#94a3b8' }}>
-          Loading case details...
+        <div style={{ padding: '60px', textAlign: 'center', color: 'var(--text-muted)' }}>
+          {tCommon('loadingDetails')}
         </div>
       </AppShell>
     );
@@ -101,13 +109,17 @@ export default function CaseDetailPage() {
     return (
       <AppShell>
         <div style={{ padding: '40px', textAlign: 'center', color: '#f87171' }}>
-          Error loading case details: {error ? (error as Error).message : 'Not found'}
+          {tCommon('errorLoadingDetails')}: {error ? (error as Error).message : tCommon('notFound')}
         </div>
       </AppShell>
     );
   }
 
   const statusConfig = getStatusConfig(caseDetail.status);
+  const localizedStatusLabel = tStatus.has(caseDetail.status)
+    ? tStatus(caseDetail.status as any)
+    : statusConfig.label;
+
   const isDraft = caseDetail.status === BookingCaseStatus.DRAFT;
   const isReady = caseDetail.status === BookingCaseStatus.READY;
   const isHumanAction = caseDetail.status === BookingCaseStatus.HUMAN_VERIFICATION_REQUIRED;
@@ -117,6 +129,24 @@ export default function CaseDetailPage() {
   return (
     <AppShell>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+        {/* Back navigation */}
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          <Link
+            href="/bookings"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontSize: '0.875rem',
+              color: 'var(--text-muted)',
+              textDecoration: 'none',
+            }}
+          >
+            <ArrowLeft size={16} className="icon-directional" />
+            <span>{t('back')}</span>
+          </Link>
+        </div>
+
         {/* Top Header Card */}
         <div
           id="case-header-card"
@@ -132,22 +162,24 @@ export default function CaseDetailPage() {
         >
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '6px' }}>
-              <h1 id="case-detail-number" style={{ fontSize: '1.75rem', fontWeight: 700, color: '#f8fafc' }}>
-                {caseDetail.caseNumber}
+              <h1 id="case-detail-number" style={{ fontSize: '1.75rem', fontWeight: 700, color: '#f8fafc', margin: 0 }}>
+                <TechnicalText>{caseDetail.caseNumber}</TechnicalText>
               </h1>
               <span id="case-detail-status-badge" className={`badge ${statusConfig.badgeClass}`}>
-                {statusConfig.label}
+                {localizedStatusLabel}
               </span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', color: '#94a3b8' }}>
-              <span style={{ color: '#60a5fa', fontWeight: 600 }}>{caseDetail.provider.code}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+              <span style={{ color: 'var(--accent-color)', fontWeight: 600 }}>{caseDetail.provider.code}</span>
               <span>•</span>
               <span>
                 {caseDetail.provider.sourceCountry} → {caseDetail.provider.destinationCountry} (
                 {caseDetail.provider.applicationCentre})
               </span>
               <span>•</span>
-              <span>Category: {caseDetail.provider.visaCategory}</span>
+              <span>
+                {t('category')}: {caseDetail.provider.visaCategory}
+              </span>
             </div>
           </div>
 
@@ -161,6 +193,7 @@ export default function CaseDetailPage() {
               className="btn-secondary"
               id="btn-refresh-case-detail"
               style={{ padding: '8px 12px' }}
+              aria-label={t('refresh')}
             >
               <RefreshCw size={14} />
             </button>
@@ -173,7 +206,7 @@ export default function CaseDetailPage() {
                 className="btn-primary"
               >
                 <ShieldCheck size={16} />
-                <span>{markReadyMutation.isPending ? 'Verifying...' : 'Mark as Ready'}</span>
+                <span>{markReadyMutation.isPending ? t('verifying') : t('markAsReady')}</span>
               </button>
             )}
 
@@ -184,8 +217,8 @@ export default function CaseDetailPage() {
                 disabled={startAutomationMutation.isPending}
                 className="btn-success"
               >
-                <Play size={16} />
-                <span>{startAutomationMutation.isPending ? 'Starting...' : 'Start Automation'}</span>
+                <Play size={16} className="icon-directional" />
+                <span>{startAutomationMutation.isPending ? t('starting') : t('startAutomation')}</span>
               </button>
             )}
           </div>
@@ -205,6 +238,108 @@ export default function CaseDetailPage() {
             }}
           >
             {actionError}
+          </div>
+        )}
+
+        {/* Confirmed Booking Banner */}
+        {(isConfirmed || caseDetail.appointment) && (
+          <div
+            id="confirmed-booking-banner"
+            className="glass-card"
+            style={{
+              padding: '24px',
+              backgroundColor: 'rgba(16, 185, 129, 0.1)',
+              border: '1px solid rgba(16, 185, 129, 0.4)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '16px',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div
+                style={{
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '10px',
+                  backgroundColor: 'rgba(16, 185, 129, 0.25)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#10b981',
+                }}
+              >
+                <CheckCircle2 size={24} />
+              </div>
+              <div>
+                <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: '#6ee7b7', margin: 0 }}>
+                  {t('bookingConfirmedTitle')}
+                </h3>
+                <span style={{ fontSize: '0.875rem', color: '#a7f3d0' }}>
+                  {t('bookingConfirmedDesc')}
+                </span>
+              </div>
+            </div>
+
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                gap: '16px',
+                paddingTop: '8px',
+                borderTop: '1px solid rgba(16, 185, 129, 0.2)',
+              }}
+            >
+              <div>
+                <span style={{ fontSize: '0.75rem', color: '#94a3b8', textTransform: 'uppercase' }}>
+                  {t('reference')}
+                </span>
+                <div style={{ fontSize: '1rem', fontWeight: 700, color: '#f8fafc', marginTop: '2px' }}>
+                  <TechnicalText>
+                    {caseDetail.appointment?.confirmationCode || caseDetail.caseNumber}
+                  </TechnicalText>
+                </div>
+              </div>
+
+              <div>
+                <span style={{ fontSize: '0.75rem', color: '#94a3b8', textTransform: 'uppercase' }}>
+                  {t('appointmentDate')}
+                </span>
+                <div style={{ fontSize: '1rem', fontWeight: 600, color: '#f8fafc', marginTop: '2px' }}>
+                  {caseDetail.appointment?.appointmentDate
+                    ? formatDate(caseDetail.appointment.appointmentDate, locale)
+                    : formatDate(new Date().toISOString(), locale)}
+                </div>
+              </div>
+
+              <div>
+                <span style={{ fontSize: '0.75rem', color: '#94a3b8', textTransform: 'uppercase' }}>
+                  {t('appointmentTime')}
+                </span>
+                <div style={{ fontSize: '1rem', fontWeight: 600, color: '#f8fafc', marginTop: '2px' }}>
+                  <TechnicalText>
+                    {caseDetail.appointment?.appointmentTime || caseDetail.preferredTime || '09:30 AM'}
+                  </TechnicalText>
+                </div>
+              </div>
+
+              <div>
+                <span style={{ fontSize: '0.75rem', color: '#94a3b8', textTransform: 'uppercase' }}>
+                  {t('centre')}
+                </span>
+                <div style={{ fontSize: '1rem', fontWeight: 600, color: '#f8fafc', marginTop: '2px' }}>
+                  {caseDetail.appointment?.centre || caseDetail.provider.applicationCentre}
+                </div>
+              </div>
+
+              <div>
+                <span style={{ fontSize: '0.75rem', color: '#94a3b8', textTransform: 'uppercase' }}>
+                  {t('applicantsTitle')}
+                </span>
+                <div style={{ fontSize: '1rem', fontWeight: 600, color: '#f8fafc', marginTop: '2px' }}>
+                  {caseDetail.applicants.length}
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
@@ -238,11 +373,11 @@ export default function CaseDetailPage() {
                 <AlertTriangle size={20} />
               </div>
               <div>
-                <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#fed7aa' }}>
-                  Operator Intervention Required
+                <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#fed7aa', margin: 0 }}>
+                  {t('humanVerificationTitle')}
                 </h3>
                 <span style={{ fontSize: '0.85rem', color: '#fdba74' }}>
-                  The provider presented a security verification challenge ({caseDetail.automationSession?.humanActionType || 'Verification challenge'}).
+                  {t('humanVerificationDesc')}
                 </span>
               </div>
             </div>
@@ -251,7 +386,8 @@ export default function CaseDetailPage() {
               <input
                 id="input-challenge-solution"
                 type="text"
-                placeholder="Enter 2FA / OTP Code or Solution Token..."
+                dir="ltr"
+                placeholder={t('enterChallengeSolution')}
                 value={challengeInput}
                 onChange={(e) => setChallengeInput(e.target.value)}
                 style={{
@@ -276,15 +412,15 @@ export default function CaseDetailPage() {
                 className="btn-primary"
                 style={{ backgroundColor: '#ea580c' }}
               >
-                <Send size={15} />
-                <span>{resumeMutation.isPending ? 'Submitting...' : 'Submit & Resume'}</span>
+                <Send size={15} className="icon-directional" />
+                <span>{resumeMutation.isPending ? t('submitting') : t('submitAndResume')}</span>
               </button>
             </div>
           </div>
         )}
 
         {/* Payment Required Handoff Card */}
-        {isPaymentRequired && caseDetail.paymentHandoff && (
+        {isPaymentRequired && (
           <div
             id="payment-handoff-action-card"
             className="glass-card"
@@ -313,31 +449,35 @@ export default function CaseDetailPage() {
                 <CreditCard size={20} />
               </div>
               <div>
-                <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#fde68a' }}>
-                  Manual Payment Step Reached
+                <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#fde68a', margin: 0 }}>
+                  {t('paymentRequiredTitle')}
                 </h3>
                 <span style={{ fontSize: '0.85rem', color: '#fef3c7' }}>
-                  Complete the provider fee payment via the safe payment gateway.
+                  {t('paymentRequiredDesc')}
                 </span>
               </div>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-              {caseDetail.paymentHandoff.amount && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '20px' }}>
+              {caseDetail.paymentHandoff?.amount && (
                 <div>
                   <span style={{ fontSize: '0.75rem', color: '#94a3b8', textTransform: 'uppercase' }}>
-                    Amount Due
+                    {t('amountDue')}
                   </span>
                   <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#f8fafc' }}>
-                    {caseDetail.paymentHandoff.currency} {caseDetail.paymentHandoff.amount.toFixed(2)}
+                    {formatCurrency(
+                      caseDetail.paymentHandoff.amount,
+                      caseDetail.paymentHandoff.currency || 'USD',
+                      locale
+                    )}
                   </div>
                 </div>
               )}
 
-              {caseDetail.paymentHandoff.safePaymentPath && (
+              {caseDetail.paymentHandoff?.safePaymentPath && (
                 <div>
                   <span style={{ fontSize: '0.75rem', color: '#94a3b8', textTransform: 'uppercase' }}>
-                    Gateway Link
+                    {t('gatewayLink')}
                   </span>
                   <div>
                     <a
@@ -345,16 +485,17 @@ export default function CaseDetailPage() {
                       target="_blank"
                       rel="noreferrer"
                       id="link-payment-gateway"
+                      dir="ltr"
                       style={{
                         color: '#60a5fa',
-                        display: 'flex',
+                        display: 'inline-flex',
                         alignItems: 'center',
                         gap: '4px',
                         fontSize: '0.875rem',
                         textDecoration: 'underline',
                       }}
                     >
-                      <span>Open Safe Payment Link</span>
+                      <span>{t('openPaymentLink')}</span>
                       <ExternalLink size={14} />
                     </a>
                   </div>
@@ -370,25 +511,25 @@ export default function CaseDetailPage() {
                 }
                 disabled={resumeMutation.isPending}
                 className="btn-success"
-                style={{ marginLeft: 'auto' }}
+                style={{ marginInlineStart: 'auto' }}
               >
                 <CheckCircle2 size={16} />
-                <span>Confirm Payment Completed</span>
+                <span>{t('confirmPaymentComplete')}</span>
               </button>
             </div>
           </div>
         )}
 
         {/* 2-Column Grid: Left (Applicants & Config) / Right (Live Automation & Timeline) */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '24px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '24px' }}>
           {/* LEFT COLUMN */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
             {/* Applicants Card */}
             <div id="case-applicants-card" className="glass-card" style={{ padding: '24px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
                 <Users size={18} color="#3b82f6" />
-                <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#f8fafc' }}>
-                  Applicants ({caseDetail.applicants.length})
+                <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#f8fafc', margin: 0 }}>
+                  {t('applicantsTitle')} ({caseDetail.applicants.length})
                 </h3>
               </div>
 
@@ -398,17 +539,17 @@ export default function CaseDetailPage() {
                   style={{
                     width: '100%',
                     borderCollapse: 'collapse',
-                    textAlign: 'left',
+                    textAlign: 'start',
                     fontSize: '0.875rem',
                   }}
                 >
                   <thead>
                     <tr style={{ borderBottom: '1px solid var(--border-subtle)', color: '#64748b' }}>
-                      <th style={{ padding: '8px 10px', fontWeight: 500 }}>Name</th>
-                      <th style={{ padding: '8px 10px', fontWeight: 500 }}>Relation</th>
-                      <th style={{ padding: '8px 10px', fontWeight: 500 }}>Passport (Masked)</th>
-                      <th style={{ padding: '8px 10px', fontWeight: 500 }}>Nationality</th>
-                      <th style={{ padding: '8px 10px', fontWeight: 500 }}>Expiry</th>
+                      <th style={{ padding: '8px 10px', fontWeight: 500, textAlign: 'start' }}>{t('name')}</th>
+                      <th style={{ padding: '8px 10px', fontWeight: 500, textAlign: 'start' }}>{t('relation')}</th>
+                      <th style={{ padding: '8px 10px', fontWeight: 500, textAlign: 'start' }}>{t('passportMasked')}</th>
+                      <th style={{ padding: '8px 10px', fontWeight: 500, textAlign: 'start' }}>{t('nationality')}</th>
+                      <th style={{ padding: '8px 10px', fontWeight: 500, textAlign: 'start' }}>{t('expiry')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -423,7 +564,7 @@ export default function CaseDetailPage() {
                           {app.isPrimary && (
                             <span
                               style={{
-                                marginLeft: '6px',
+                                marginInlineStart: '6px',
                                 fontSize: '0.7rem',
                                 color: '#60a5fa',
                                 backgroundColor: 'rgba(59, 130, 246, 0.15)',
@@ -431,11 +572,11 @@ export default function CaseDetailPage() {
                                 borderRadius: '4px',
                               }}
                             >
-                              PRIMARY
+                              {tCommon('primary')}
                             </span>
                           )}
                         </td>
-                        <td style={{ padding: '12px 10px', color: '#94a3b8' }}>{app.relation}</td>
+                        <td style={{ padding: '12px 10px', color: 'var(--text-muted)' }}>{app.relation}</td>
                         <td style={{ padding: '12px 10px' }}>
                           <span
                             style={{
@@ -445,15 +586,18 @@ export default function CaseDetailPage() {
                               borderRadius: '4px',
                               color: '#cbd5e1',
                               letterSpacing: '0.05em',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
                             }}
                           >
-                            <Lock size={11} style={{ display: 'inline', marginRight: '4px' }} />
-                            {app.passportMasked}
+                            <Lock size={11} />
+                            <TechnicalText>{app.passportMasked}</TechnicalText>
                           </span>
                         </td>
-                        <td style={{ padding: '12px 10px', color: '#94a3b8' }}>{app.nationality}</td>
+                        <td style={{ padding: '12px 10px', color: 'var(--text-muted)' }}>{app.nationality}</td>
                         <td style={{ padding: '12px 10px', color: '#64748b' }}>
-                          {formatDate(app.passportExpiry)}
+                          {formatDate(app.passportExpiry, locale)}
                         </td>
                       </tr>
                     ))}
@@ -466,46 +610,46 @@ export default function CaseDetailPage() {
             <div id="case-preferences-card" className="glass-card" style={{ padding: '24px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
                 <Calendar size={18} color="#0ea5e9" />
-                <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#f8fafc' }}>
-                  Scheduling Preferences
+                <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#f8fafc', margin: 0 }}>
+                  {t('schedulingPreferences')}
                 </h3>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                 <div>
                   <span style={{ fontSize: '0.75rem', color: '#94a3b8', textTransform: 'uppercase' }}>
-                    Target Window
+                    {t('targetWindow')}
                   </span>
                   <div style={{ fontSize: '0.9rem', color: '#f8fafc', fontWeight: 500, marginTop: '2px' }}>
-                    {caseDetail.preferredDateFrom ? formatDate(caseDetail.preferredDateFrom) : 'Any'} →{' '}
-                    {caseDetail.preferredDateTo ? formatDate(caseDetail.preferredDateTo) : 'Any'}
+                    {caseDetail.preferredDateFrom ? formatDate(caseDetail.preferredDateFrom, locale) : tCommon('any')} →{' '}
+                    {caseDetail.preferredDateTo ? formatDate(caseDetail.preferredDateTo, locale) : tCommon('any')}
                   </div>
                 </div>
 
                 <div>
                   <span style={{ fontSize: '0.75rem', color: '#94a3b8', textTransform: 'uppercase' }}>
-                    Time Preference
+                    {t('timePreference')}
                   </span>
                   <div style={{ fontSize: '0.9rem', color: '#f8fafc', fontWeight: 500, marginTop: '2px' }}>
-                    {caseDetail.preferredTime || 'Any Time'}
+                    {caseDetail.preferredTime || tCommon('anyTime')}
                   </div>
                 </div>
 
                 <div>
                   <span style={{ fontSize: '0.75rem', color: '#94a3b8', textTransform: 'uppercase' }}>
-                    Group Split Allowed
+                    {t('groupSplitAllowed')}
                   </span>
                   <div style={{ fontSize: '0.9rem', color: '#f8fafc', fontWeight: 500, marginTop: '2px' }}>
-                    {caseDetail.allowGroupSplit ? 'Yes' : 'No (All applicants together)'}
+                    {caseDetail.allowGroupSplit ? t('groupSplitAllowedYes') : t('groupSplitAllowedNo')}
                   </div>
                 </div>
 
                 <div>
                   <span style={{ fontSize: '0.75rem', color: '#94a3b8', textTransform: 'uppercase' }}>
-                    Provider Account
+                    {t('providerAccount')}
                   </span>
                   <div style={{ fontSize: '0.9rem', color: '#f8fafc', fontWeight: 500, marginTop: '2px' }}>
-                    {caseDetail.providerAccount?.label || caseDetail.providerAccount?.username || 'Auto-allocated'}
+                    {caseDetail.providerAccount?.label || caseDetail.providerAccount?.username || t('autoAllocated')}
                   </div>
                 </div>
               </div>
@@ -518,15 +662,15 @@ export default function CaseDetailPage() {
             <div id="case-automation-session-card" className="glass-card" style={{ padding: '24px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
                 <Cpu size={18} color="#8b5cf6" />
-                <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#f8fafc' }}>
-                  Automation Session
+                <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#f8fafc', margin: 0 }}>
+                  {t('automationSession')}
                 </h3>
               </div>
 
               {caseDetail.automationSession ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Session Status</span>
+                    <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>{t('sessionStatus')}</span>
                     <span
                       style={{
                         fontSize: '0.75rem',
@@ -537,15 +681,15 @@ export default function CaseDetailPage() {
                         borderRadius: '4px',
                       }}
                     >
-                      {caseDetail.automationSession.status}
+                      <TechnicalText>{caseDetail.automationSession.status}</TechnicalText>
                     </span>
                   </div>
 
                   {caseDetail.automationSession.currentPath && (
                     <div>
-                      <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Current Step:</span>
+                      <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{t('currentStep')}</span>
                       <div style={{ fontSize: '0.875rem', color: '#f8fafc', fontWeight: 500 }}>
-                        {caseDetail.automationSession.currentPath}
+                        <TechnicalText>{caseDetail.automationSession.currentPath}</TechnicalText>
                       </div>
                     </div>
                   )}
@@ -561,13 +705,13 @@ export default function CaseDetailPage() {
                         color: '#fdba74',
                       }}
                     >
-                      Active Challenge: {caseDetail.automationSession.humanActionType}
+                      {t('activeChallenge')} {caseDetail.automationSession.humanActionType}
                     </div>
                   )}
                 </div>
               ) : (
                 <div style={{ padding: '16px', textAlign: 'center', color: '#64748b', fontSize: '0.875rem' }}>
-                  No active automation session. Case is in {caseDetail.status} state.
+                  {t('noActiveSession', { status: localizedStatusLabel })}
                 </div>
               )}
             </div>
@@ -576,8 +720,8 @@ export default function CaseDetailPage() {
             <div id="case-timeline-card" className="glass-card" style={{ padding: '24px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
                 <Activity size={18} color="#10b981" />
-                <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#f8fafc' }}>
-                  Case Timeline & Audit Trail
+                <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#f8fafc', margin: 0 }}>
+                  {t('timelineTitle')}
                 </h3>
               </div>
 
@@ -614,12 +758,12 @@ export default function CaseDetailPage() {
                           {item.title}
                         </div>
                         {item.description && (
-                          <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '2px' }}>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
                             {item.description}
                           </div>
                         )}
                         <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '4px' }}>
-                          {formatDateTime(item.timestamp)} ({formatRelativeTime(item.timestamp)})
+                          {formatDateTime(item.timestamp, locale)} ({formatRelativeTime(item.timestamp, locale)})
                         </div>
                       </div>
                     </div>
@@ -627,7 +771,7 @@ export default function CaseDetailPage() {
                 </div>
               ) : (
                 <div style={{ padding: '16px', textAlign: 'center', color: '#64748b', fontSize: '0.875rem' }}>
-                  No timeline events recorded yet.
+                  {t('noTimelineEvents')}
                 </div>
               )}
             </div>

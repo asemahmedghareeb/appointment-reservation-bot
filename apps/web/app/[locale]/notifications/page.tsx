@@ -1,23 +1,24 @@
 'use client';
 
 import React, { useState } from 'react';
-import Link from 'next/link';
+import { useTranslations, useLocale } from 'next-intl';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '../../lib/api/api-client';
-import { AppShell } from '../../components/layout/app-shell';
-import { formatRelativeTime, formatDateTime } from '../../lib/formatters/dates';
+import { Link } from '../../../i18n/navigation';
+import { api } from '../../../lib/api/api-client';
+import { AppShell } from '../../../components/layout/app-shell';
+import { formatRelativeTime } from '../../../lib/formatters/dates';
+import { TechnicalText } from '../../../components/ui/technical-text';
 import {
   Bell,
   CheckCheck,
-  Calendar,
-  AlertTriangle,
-  Info,
-  CheckCircle2,
   Filter,
 } from 'lucide-react';
 
-export default function NotificationsPage() {
+export default function LocalizedNotificationsPage() {
   const [unreadOnly, setUnreadOnly] = useState(false);
+  const locale = useLocale();
+  const t = useTranslations('notifications');
+  const tCommon = useTranslations('common');
   const queryClient = useQueryClient();
 
   const { data, isLoading } = useQuery({
@@ -46,7 +47,7 @@ export default function NotificationsPage() {
     <AppShell>
       <div style={{ maxWidth: '900px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '24px' }}>
         {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
               <div
@@ -63,12 +64,12 @@ export default function NotificationsPage() {
               >
                 <Bell size={18} />
               </div>
-              <h1 style={{ fontSize: '1.75rem', fontWeight: 700, color: '#f8fafc' }}>
-                Notifications Center
+              <h1 style={{ fontSize: '1.75rem', fontWeight: 700, color: '#f8fafc', margin: 0 }}>
+                {t('title')}
               </h1>
             </div>
-            <p style={{ fontSize: '0.875rem', color: '#94a3b8' }}>
-              Real-time operational alerts, system notifications, and challenge prompts
+            <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', margin: 0 }}>
+              {t('subtitle')}
             </p>
           </div>
 
@@ -85,7 +86,7 @@ export default function NotificationsPage() {
               }}
             >
               <Filter size={14} />
-              <span>{unreadOnly ? 'Showing Unread' : 'Filter Unread'}</span>
+              <span>{unreadOnly ? t('showingUnread') : t('filterUnread')}</span>
             </button>
 
             <button
@@ -96,7 +97,7 @@ export default function NotificationsPage() {
               style={{ fontSize: '0.8rem', padding: '6px 14px' }}
             >
               <CheckCheck size={14} />
-              <span>Mark all as read</span>
+              <span>{t('markAllRead')}</span>
             </button>
           </div>
         </div>
@@ -104,19 +105,17 @@ export default function NotificationsPage() {
         {/* Notifications List */}
         <div className="glass-card" style={{ padding: '0', overflow: 'hidden' }}>
           {isLoading ? (
-            <div style={{ padding: '48px', textAlign: 'center', color: '#94a3b8' }}>
-              Loading notifications...
+            <div style={{ padding: '48px', textAlign: 'center', color: 'var(--text-muted)' }}>
+              {t('loading')}
             </div>
           ) : notifications.length === 0 ? (
             <div style={{ padding: '48px', textAlign: 'center', color: '#64748b' }}>
               <Bell size={36} color="#475569" style={{ marginBottom: '12px' }} />
               <h3 style={{ fontSize: '1rem', color: '#cbd5e1', marginBottom: '4px' }}>
-                No notifications to display
+                {t('noNotificationsTitle')}
               </h3>
-              <p style={{ fontSize: '0.875rem', color: '#94a3b8' }}>
-                {unreadOnly
-                  ? 'You have caught up with all notifications.'
-                  : 'System activity and alerts will appear here.'}
+              <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+                {unreadOnly ? t('noNotificationsUnread') : t('noNotificationsAll')}
               </p>
             </div>
           ) : (
@@ -163,20 +162,20 @@ export default function NotificationsPage() {
                           <span
                             style={{
                               fontSize: '0.7rem',
-                              color: '#94a3b8',
+                              color: 'var(--text-muted)',
                               backgroundColor: 'rgba(255,255,255,0.05)',
                               padding: '1px 6px',
                               borderRadius: '4px',
                             }}
                           >
-                            {notif.type}
+                            <TechnicalText>{notif.type}</TechnicalText>
                           </span>
                         </div>
                         <p style={{ fontSize: '0.85rem', color: '#cbd5e1', marginBottom: '4px' }}>
                           {notif.message}
                         </p>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '0.75rem', color: '#64748b' }}>
-                          <span>{formatRelativeTime(notif.createdAt)}</span>
+                          <span>{formatRelativeTime(notif.createdAt, locale)}</span>
                           {notif.bookingCaseId && (
                             <>
                               <span>•</span>
@@ -184,7 +183,7 @@ export default function NotificationsPage() {
                                 href={`/bookings/${notif.bookingCaseId}`}
                                 style={{ color: '#60a5fa', textDecoration: 'underline' }}
                               >
-                                View Related Case
+                                {t('viewRelatedCase')}
                               </Link>
                             </>
                           )}
@@ -199,7 +198,7 @@ export default function NotificationsPage() {
                         id={`btn-mark-read-${notif.id}`}
                         style={{ padding: '4px 10px', fontSize: '0.75rem', whiteSpace: 'nowrap' }}
                       >
-                        Mark as read
+                        {t('markAsRead')}
                       </button>
                     )}
                   </div>
