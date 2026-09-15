@@ -235,7 +235,7 @@ export default function LocalizedBookingsListPage() {
                         <td style={{ padding: '16px 20px', color: '#cbd5e1' }}>
                           {c.providerRoute
                             ? `${c.providerRoute.provider?.code || 'VFS'} • ${c.providerRoute.destinationCountry} (${c.providerRoute.applicationCentre})`
-                            : 'VFS • GRC (Cairo)'}
+                            : '—'}
                         </td>
                         <td style={{ padding: '16px 20px', color: '#94a3b8' }}>
                           {formatNumber(applicantsCount, locale)} {t('applicants')}

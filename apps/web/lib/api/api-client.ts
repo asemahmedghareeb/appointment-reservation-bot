@@ -134,7 +134,26 @@ export const api = {
   },
 
   providerRoutes: {
-    list: () => fetchJson<any[]>('/provider-routes'),
+    list: (params?: {
+      provider?: string | undefined;
+      sourceCountry?: string | undefined;
+      destinationCountry?: string | undefined;
+      applicationCentre?: string | undefined;
+      visaCategory?: string | undefined;
+      visaSubcategory?: string | undefined;
+      enabled?: boolean | undefined;
+    }) => {
+      const query = new URLSearchParams();
+      if (params?.provider) query.set('provider', params.provider);
+      if (params?.sourceCountry) query.set('sourceCountry', params.sourceCountry);
+      if (params?.destinationCountry) query.set('destinationCountry', params.destinationCountry);
+      if (params?.applicationCentre) query.set('applicationCentre', params.applicationCentre);
+      if (params?.visaCategory) query.set('visaCategory', params.visaCategory);
+      if (params?.visaSubcategory) query.set('visaSubcategory', params.visaSubcategory);
+      if (params?.enabled !== undefined) query.set('enabled', String(params.enabled));
+      const qs = query.toString();
+      return fetchJson<any[]>(`/provider-routes${qs ? `?${qs}` : ''}`);
+    },
   },
 
   clients: {

@@ -1,4 +1,11 @@
 {
+  "countries": {
+    "EG": "مصر",
+    "GR": "اليونان",
+    "HU": "المجر",
+    "PT": "البرتغال",
+    "AT": "النمسا"
+  },
   "common": {
     "appName": "VisaFlow",
     "operationsConsole": "لوحة العمليات",
@@ -120,10 +127,12 @@
     "step5Title": "المراجعة والتأكيد",
     "step5Desc": "التحقق من كافة المعطيات وتجهيز الحجز الآلي",
     "selectProvider": "مزود الخدمة",
+    "sourceCountry": "دولة المصدر",
     "destinationCountry": "دولة الوجهة",
     "applicationCentre": "مركز التقديم",
     "visaCategory": "فئة التأشيرة",
     "visaSubcategory": "الفئة الفرعية",
+    "noRoutesFound": "لا توجد مسارات متاحة لمزود الخدمة",
     "clientName": "اسم العميل",
     "clientEmail": "البريد الإلكتروني للعميل",
     "clientPhone": "هاتف العميل",

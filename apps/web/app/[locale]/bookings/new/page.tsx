@@ -27,13 +27,29 @@ export default function LocalizedNewBookingWizardPage() {
   const locale = useLocale();
   const t = useTranslations('bookingWizard');
   const tCommon = useTranslations('common');
+  const tCountries = useTranslations('countries');
+
+  const getCountryName = (code: string) => {
+    try {
+      return tCountries(code);
+    } catch {
+      return code;
+    }
+  };
 
   const [currentStep, setCurrentStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Form State
+  // Progressive Route Form State
+  const [providerCode, setProviderCode] = useState<string>('VFS');
+  const [sourceCountry, setSourceCountry] = useState<string>('EG');
+  const [destinationCountry, setDestinationCountry] = useState<string>('');
+  const [applicationCentre, setApplicationCentre] = useState<string>('');
+  const [visaCategory, setVisaCategory] = useState<string>('');
+  const [visaSubcategory, setVisaSubcategory] = useState<string>('');
   const [selectedRouteId, setSelectedRouteId] = useState<string>('');
+
   const [applicantData, setApplicantData] = useState({
     firstName: '',
     lastName: '',
@@ -53,17 +69,125 @@ export default function LocalizedNewBookingWizardPage() {
     allowGroupSplit: false,
   });
 
-  // Query Routes
+  // Query Enabled Routes for Provider & Source Country
   const { data: routes, isLoading: routesLoading } = useQuery({
-    queryKey: ['provider-routes'],
+    queryKey: ['provider-routes', providerCode, sourceCountry],
     queryFn: async () => {
-      const list = await api.providerRoutes.list();
-      if (list && list.length > 0 && !selectedRouteId) {
-        setSelectedRouteId(list[0].id);
-      }
-      return list;
+      const list = await api.providerRoutes.list({
+        provider: providerCode,
+        sourceCountry,
+        enabled: true,
+      });
+      return list || [];
     },
   });
+
+  // Derived progressive options
+  const availableDestinations = React.useMemo(() => {
+    if (!routes) return [];
+    return Array.from(new Set(routes.map((r: any) => r.destinationCountry))).filter(Boolean) as string[];
+  }, [routes]);
+
+  const availableCentres = React.useMemo(() => {
+    if (!routes || !destinationCountry) return [];
+    return Array.from(
+      new Set(
+        routes
+          .filter((r: any) => r.destinationCountry === destinationCountry)
+          .map((r: any) => r.applicationCentre)
+      )
+    ).filter(Boolean) as string[];
+  }, [routes, destinationCountry]);
+
+  const availableCategories = React.useMemo(() => {
+    if (!routes || !destinationCountry || !applicationCentre) return [];
+    return Array.from(
+      new Set(
+        routes
+          .filter(
+            (r: any) =>
+              r.destinationCountry === destinationCountry &&
+              r.applicationCentre === applicationCentre
+          )
+          .map((r: any) => r.visaCategory)
+      )
+    ).filter(Boolean) as string[];
+  }, [routes, destinationCountry, applicationCentre]);
+
+  const availableSubcategories = React.useMemo(() => {
+    if (!routes || !destinationCountry || !applicationCentre || !visaCategory) return [];
+    return Array.from(
+      new Set(
+        routes
+          .filter(
+            (r: any) =>
+              r.destinationCountry === destinationCountry &&
+              r.applicationCentre === applicationCentre &&
+              r.visaCategory === visaCategory
+          )
+          .map((r: any) => r.visaSubcategory)
+      )
+    ).filter(Boolean) as string[];
+  }, [routes, destinationCountry, applicationCentre, visaCategory]);
+
+  const matchingRoutes = React.useMemo(() => {
+    if (!routes) return [];
+    return routes.filter((r: any) => {
+      if (destinationCountry && r.destinationCountry !== destinationCountry) return false;
+      if (applicationCentre && r.applicationCentre !== applicationCentre) return false;
+      if (visaCategory && r.visaCategory !== visaCategory) return false;
+      if (visaSubcategory && r.visaSubcategory !== visaSubcategory) return false;
+      return true;
+    });
+  }, [routes, destinationCountry, applicationCentre, visaCategory, visaSubcategory]);
+
+  const selectedRouteObj = React.useMemo(() => {
+    return routes?.find((r: any) => r.id === selectedRouteId) || null;
+  }, [routes, selectedRouteId]);
+
+  // Destination Reset Rules
+  const handleDestinationChange = (newDest: string) => {
+    setDestinationCountry(newDest);
+    setApplicationCentre('');
+    setVisaCategory('');
+    setVisaSubcategory('');
+    setSelectedRouteId('');
+  };
+
+  const handleCentreChange = (newCentre: string) => {
+    setApplicationCentre(newCentre);
+    setVisaCategory('');
+    setVisaSubcategory('');
+    setSelectedRouteId('');
+  };
+
+  const handleCategoryChange = (newCat: string) => {
+    setVisaCategory(newCat);
+    setVisaSubcategory('');
+    setSelectedRouteId('');
+  };
+
+  const handleSubcategoryChange = (newSub: string) => {
+    setVisaSubcategory(newSub);
+    const matched = routes?.find(
+      (r: any) =>
+        r.destinationCountry === destinationCountry &&
+        r.applicationCentre === applicationCentre &&
+        r.visaCategory === visaCategory &&
+        r.visaSubcategory === newSub
+    );
+    if (matched) {
+      setSelectedRouteId(matched.id);
+    }
+  };
+
+  const handleSelectRouteDirect = (route: any) => {
+    setSelectedRouteId(route.id);
+    setDestinationCountry(route.destinationCountry);
+    setApplicationCentre(route.applicationCentre);
+    setVisaCategory(route.visaCategory);
+    setVisaSubcategory(route.visaSubcategory);
+  };
 
   const steps = [
     { number: 1, title: t('step1Title'), icon: MapPin },
@@ -136,8 +260,6 @@ export default function LocalizedNewBookingWizardPage() {
       setSubmitting(false);
     }
   }
-
-  const selectedRouteObj = routes?.find((r: any) => r.id === selectedRouteId) ?? routes?.[0];
 
   return (
     <AppShell>
@@ -254,95 +376,285 @@ export default function LocalizedNewBookingWizardPage() {
         <div className="glass-card" style={{ padding: '32px' }}>
           {/* STEP 1: ROUTE SELECTION */}
           {currentStep === 1 && (
-            <div id="wizard-step-1" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              <h2 style={{ fontSize: '1.2rem', fontWeight: 600, color: '#f8fafc' }}>
-                {t('step1Title')}
-              </h2>
-              <p style={{ fontSize: '0.875rem', color: '#94a3b8' }}>
-                {t('step1Desc')}
-              </p>
+            <div id="wizard-step-1" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+              <div>
+                <h2 style={{ fontSize: '1.2rem', fontWeight: 600, color: '#f8fafc' }}>
+                  {t('step1Title')}
+                </h2>
+                <p style={{ fontSize: '0.875rem', color: '#94a3b8', marginTop: '4px' }}>
+                  {t('step1Desc')}
+                </p>
+              </div>
+
+              {/* Provider & Source summary chips */}
+              <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                <div
+                  style={{
+                    padding: '8px 14px',
+                    borderRadius: '8px',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    border: '1px solid rgba(59, 130, 246, 0.3)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    fontSize: '0.875rem',
+                  }}
+                >
+                  <span style={{ color: '#94a3b8' }}>{t('selectProvider')}:</span>
+                  <strong style={{ color: '#93c5fd' }}>VFS Global</strong>
+                </div>
+
+                <div
+                  style={{
+                    padding: '8px 14px',
+                    borderRadius: '8px',
+                    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+                    border: '1px solid var(--border-subtle)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    fontSize: '0.875rem',
+                  }}
+                >
+                  <span style={{ color: '#94a3b8' }}>{t('sourceCountry')}:</span>
+                  <strong style={{ color: '#f8fafc' }}>{getCountryName(sourceCountry)} ({sourceCountry})</strong>
+                </div>
+              </div>
 
               {routesLoading ? (
                 <div style={{ padding: '24px', color: '#94a3b8' }}>{tCommon('loading')}</div>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  {routes && routes.length > 0 ? (
-                    routes.map((route: any) => {
-                      const isSelected = selectedRouteId === route.id;
-                      return (
-                        <div
-                          key={route.id}
-                          id={`route-option-${route.id}`}
-                          onClick={() => setSelectedRouteId(route.id)}
-                          style={{
-                            padding: '16px 20px',
-                            borderRadius: '10px',
-                            backgroundColor: isSelected
-                              ? 'rgba(59, 130, 246, 0.12)'
-                              : 'rgba(255, 255, 255, 0.02)',
-                            border: isSelected
-                              ? '2px solid #3b82f6'
-                              : '1px solid var(--border-subtle)',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            transition: 'all 0.15s ease',
-                          }}
-                        >
-                          <div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                              <span
-                                style={{
-                                  backgroundColor: '#1e3a8a',
-                                  color: '#93c5fd',
-                                  fontSize: '0.75rem',
-                                  fontWeight: 700,
-                                  padding: '2px 8px',
-                                  borderRadius: '4px',
-                                }}
-                              >
-                                {route.provider?.code || 'VFS'}
-                              </span>
-                              <span style={{ fontSize: '1rem', fontWeight: 600, color: '#f8fafc' }}>
-                                {route.sourceCountry} → {route.destinationCountry}
-                              </span>
-                            </div>
-                            <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
-                              {t('applicationCentre')}: {route.applicationCentre} • {t('visaCategory')}: {route.visaCategory} ({route.visaSubcategory})
-                            </span>
-                          </div>
-                          {isSelected && (
-                            <div
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                  {/* Dynamic Destination Country Selection */}
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#f8fafc', marginBottom: '8px' }}>
+                      {t('destinationCountry')} *
+                    </label>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '10px' }}>
+                      {availableDestinations.map((dest) => {
+                        const isSelected = destinationCountry === dest;
+                        return (
+                          <button
+                            key={dest}
+                            type="button"
+                            id={`destination-option-${dest}`}
+                            onClick={() => handleDestinationChange(dest)}
+                            style={{
+                              padding: '12px 16px',
+                              borderRadius: '8px',
+                              backgroundColor: isSelected ? 'rgba(59, 130, 246, 0.15)' : 'rgba(255, 255, 255, 0.03)',
+                              border: isSelected ? '2px solid #3b82f6' : '1px solid var(--border-subtle)',
+                              color: isSelected ? '#93c5fd' : '#f8fafc',
+                              fontWeight: isSelected ? 600 : 400,
+                              fontSize: '0.9rem',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              transition: 'all 0.15s ease',
+                              textAlign: 'start',
+                            }}
+                          >
+                            <span>{getCountryName(dest)}</span>
+                            <span style={{ fontSize: '0.75rem', opacity: 0.7 }}>{dest}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Progressive: Application Centre Selection */}
+                  {destinationCountry && availableCentres.length > 0 && (
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#f8fafc', marginBottom: '8px' }}>
+                        {t('applicationCentre')} *
+                      </label>
+                      <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                        {availableCentres.map((centre) => {
+                          const isSelected = applicationCentre === centre;
+                          return (
+                            <button
+                              key={centre}
+                              type="button"
+                              id={`centre-option-${centre.replace(/\s+/g, '-').toLowerCase()}`}
+                              onClick={() => handleCentreChange(centre)}
                               style={{
-                                width: '24px',
-                                height: '24px',
-                                borderRadius: '50%',
-                                backgroundColor: '#3b82f6',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                color: '#fff',
+                                padding: '10px 16px',
+                                borderRadius: '8px',
+                                backgroundColor: isSelected ? 'rgba(59, 130, 246, 0.15)' : 'rgba(255, 255, 255, 0.03)',
+                                border: isSelected ? '2px solid #3b82f6' : '1px solid var(--border-subtle)',
+                                color: isSelected ? '#93c5fd' : '#f8fafc',
+                                fontWeight: isSelected ? 600 : 400,
+                                fontSize: '0.875rem',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease',
                               }}
                             >
-                              <Check size={14} />
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })
-                  ) : (
-                    <div
-                      style={{
-                        padding: '16px',
-                        backgroundColor: 'rgba(255,255,255,0.02)',
-                        borderRadius: '8px',
-                        color: '#94a3b8',
-                      }}
-                    >
-                      Default route (VFS Global Egypt → Greece Cairo)
+                              {centre}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
                   )}
+
+                  {/* Progressive: Visa Category Selection */}
+                  {applicationCentre && availableCategories.length > 0 && (
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#f8fafc', marginBottom: '8px' }}>
+                        {t('visaCategory')} *
+                      </label>
+                      <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                        {availableCategories.map((cat) => {
+                          const isSelected = visaCategory === cat;
+                          return (
+                            <button
+                              key={cat}
+                              type="button"
+                              id={`category-option-${cat.replace(/\s+/g, '-').toLowerCase()}`}
+                              onClick={() => handleCategoryChange(cat)}
+                              style={{
+                                padding: '10px 16px',
+                                borderRadius: '8px',
+                                backgroundColor: isSelected ? 'rgba(59, 130, 246, 0.15)' : 'rgba(255, 255, 255, 0.03)',
+                                border: isSelected ? '2px solid #3b82f6' : '1px solid var(--border-subtle)',
+                                color: isSelected ? '#93c5fd' : '#f8fafc',
+                                fontWeight: isSelected ? 600 : 400,
+                                fontSize: '0.875rem',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease',
+                              }}
+                            >
+                              {cat}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Progressive: Visa Subcategory Selection */}
+                  {visaCategory && availableSubcategories.length > 0 && (
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#f8fafc', marginBottom: '8px' }}>
+                        {t('visaSubcategory')} *
+                      </label>
+                      <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                        {availableSubcategories.map((sub) => {
+                          const isSelected = visaSubcategory === sub;
+                          return (
+                            <button
+                              key={sub}
+                              type="button"
+                              id={`subcategory-option-${sub.replace(/\s+/g, '-').toLowerCase()}`}
+                              onClick={() => handleSubcategoryChange(sub)}
+                              style={{
+                                padding: '10px 16px',
+                                borderRadius: '8px',
+                                backgroundColor: isSelected ? 'rgba(59, 130, 246, 0.15)' : 'rgba(255, 255, 255, 0.03)',
+                                border: isSelected ? '2px solid #3b82f6' : '1px solid var(--border-subtle)',
+                                color: isSelected ? '#93c5fd' : '#f8fafc',
+                                fontWeight: isSelected ? 600 : 400,
+                                fontSize: '0.875rem',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease',
+                              }}
+                            >
+                              {sub}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Matching Route Cards */}
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#f8fafc', marginBottom: '8px' }}>
+                      {t('step1Title')}
+                    </label>
+                    {matchingRoutes.length > 0 ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        {matchingRoutes.map((route: any) => {
+                          const isSelected = selectedRouteId === route.id;
+                          return (
+                            <div
+                              key={route.id}
+                              id={`route-option-${route.id}`}
+                              onClick={() => handleSelectRouteDirect(route)}
+                              style={{
+                                padding: '16px 20px',
+                                borderRadius: '10px',
+                                backgroundColor: isSelected
+                                  ? 'rgba(59, 130, 246, 0.12)'
+                                  : 'rgba(255, 255, 255, 0.02)',
+                                border: isSelected
+                                  ? '2px solid #3b82f6'
+                                  : '1px solid var(--border-subtle)',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                transition: 'all 0.15s ease',
+                              }}
+                            >
+                              <div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                                  <span
+                                    style={{
+                                      backgroundColor: '#1e3a8a',
+                                      color: '#93c5fd',
+                                      fontSize: '0.75rem',
+                                      fontWeight: 700,
+                                      padding: '2px 8px',
+                                      borderRadius: '4px',
+                                    }}
+                                  >
+                                    {route.provider?.code || 'VFS'}
+                                  </span>
+                                  <span style={{ fontSize: '1rem', fontWeight: 600, color: '#f8fafc' }}>
+                                    {getCountryName(route.sourceCountry)} ({route.sourceCountry}) → {getCountryName(route.destinationCountry)} ({route.destinationCountry})
+                                  </span>
+                                </div>
+                                <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
+                                  {t('applicationCentre')}: {route.applicationCentre} • {t('visaCategory')}: {route.visaCategory} ({route.visaSubcategory})
+                                </span>
+                              </div>
+                              {isSelected && (
+                                <div
+                                  style={{
+                                    width: '24px',
+                                    height: '24px',
+                                    borderRadius: '50%',
+                                    backgroundColor: '#3b82f6',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    color: '#fff',
+                                  }}
+                                >
+                                  <Check size={14} />
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div
+                        style={{
+                          padding: '20px',
+                          backgroundColor: 'rgba(255,255,255,0.02)',
+                          borderRadius: '8px',
+                          border: '1px dashed var(--border-subtle)',
+                          color: '#94a3b8',
+                          textAlign: 'center',
+                        }}
+                      >
+                        {t('noRoutesFound')}
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
@@ -624,8 +936,8 @@ export default function LocalizedNewBookingWizardPage() {
                   </span>
                   <div style={{ fontSize: '1rem', fontWeight: 600, color: '#f8fafc', marginTop: '2px' }}>
                     {selectedRouteObj
-                      ? `${selectedRouteObj.provider?.code || 'VFS'} • ${selectedRouteObj.sourceCountry} → ${selectedRouteObj.destinationCountry} (${selectedRouteObj.applicationCentre})`
-                      : 'VFS Global • Egypt → Greece (Cairo)'}
+                      ? `${selectedRouteObj.provider?.code || 'VFS'} • ${getCountryName(selectedRouteObj.sourceCountry)} (${selectedRouteObj.sourceCountry}) → ${getCountryName(selectedRouteObj.destinationCountry)} (${selectedRouteObj.destinationCountry}) • ${selectedRouteObj.applicationCentre} (${selectedRouteObj.visaCategory})`
+                      : '—'}
                   </div>
                 </div>
 

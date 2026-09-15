@@ -64,4 +64,28 @@ describe('Locale-Aware Formatters (i18n)', () => {
       expect(formatPercent(0.85, 'ar')).toContain('85');
     });
   });
+
+  describe('Multi-country i18n translation labels', () => {
+    // Dynamic import JSON messages to test dictionary completeness
+    it('provides valid English and Arabic country labels for GR, HU, PT, AT', async () => {
+      const en = await import('../messages/en.json');
+      const ar = await import('../messages/ar.json');
+
+      expect(en.countries.GR).toBe('Greece');
+      expect(en.countries.HU).toBe('Hungary');
+      expect(en.countries.PT).toBe('Portugal');
+      expect(en.countries.AT).toBe('Austria');
+      expect(en.countries.EG).toBe('Egypt');
+
+      expect(ar.countries.GR).toBe('اليونان');
+      expect(ar.countries.HU).toBe('المجر');
+      expect(ar.countries.PT).toBe('البرتغال');
+      expect(ar.countries.AT).toBe('النمسا');
+      expect(ar.countries.EG).toBe('مصر');
+
+      // France is strictly out of scope for Phase 3.1
+      expect((en.countries as any).FR).toBeUndefined();
+      expect((ar.countries as any).FR).toBeUndefined();
+    });
+  });
 });

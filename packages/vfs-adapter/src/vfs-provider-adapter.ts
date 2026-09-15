@@ -19,6 +19,7 @@ import type { VfsBrowserSessionManager } from './runtime/vfs-browser-session-man
 import type { VfsCredentialsProvider } from './credentials/vfs-credentials-provider.js';
 import type { VfsAdapterConfig } from './config/vfs-adapter-config.js';
 import { parseVfsRouteProfile } from './config/vfs-route-profile.parser.js';
+import { VfsCapabilityResolver } from './capabilities/vfs-capability.resolver.js';
 import { VfsPageClassifier, VfsPageType } from './detection/vfs-page-classifier.js';
 import { HumanVerificationDetector } from './detection/human-verification.detector.js';
 import { LoginPage } from './pages/login.page.js';
@@ -30,11 +31,13 @@ import { PaymentPage } from './pages/payment.page.js';
 import { ConfirmationPage } from './pages/confirmation.page.js';
 import { mapRouteToSelection } from './mapping/vfs-route.mapper.js';
 import { logSafeBrowserEvent } from './security/safe-browser-log.js';
+import { isOriginAllowed } from './security/safe-url.js';
 
 export class VfsProviderAdapter implements VisaProviderAdapter {
   readonly adapterId = 'vfs-global';
   private readonly classifier = new VfsPageClassifier();
   private readonly humanDetector = new HumanVerificationDetector();
+  private readonly capabilityResolver = new VfsCapabilityResolver();
 
   constructor(
     private readonly sessionManager: VfsBrowserSessionManager,
@@ -64,12 +67,32 @@ export class VfsProviderAdapter implements VisaProviderAdapter {
       };
     }
 
-    const routeProfile = parseVfsRouteProfile(context.providerRoute.configuration);
+    let routeProfile;
+    try {
+      routeProfile = parseVfsRouteProfile(context.providerRoute.configuration, {
+        sourceCountry: context.providerRoute.sourceCountry,
+        destinationCountry: context.providerRoute.destinationCountry,
+      });
+    } catch (err: any) {
+      return {
+        kind: 'PERMANENT_FAILURE',
+        code: 'VFS_INVALID_ROUTE_PROFILE',
+        safeMessage: `Failed to parse VFS route profile: ${err.message}`,
+      };
+    }
+
+    if (!routeProfile.entryUrl || !isOriginAllowed(routeProfile.entryUrl, this.config.allowedOrigins)) {
+      return {
+        kind: 'PERMANENT_FAILURE',
+        code: 'VFS_ORIGIN_NOT_ALLOWED',
+        safeMessage: `Route entry URL origin is not in approved VFS allowed origins list: ${routeProfile.entryUrl}`,
+      };
+    }
+
     const session = await this.sessionManager.getOrCreateSession(context.caseId);
 
     try {
-      const entryUrl = routeProfile.entryUrl || 'https://visa.vfsglobal.com';
-      await session.navigate(entryUrl);
+      await session.navigate(routeProfile.entryUrl);
 
       // Check human challenge before touching credentials
       const preChallenge = await this.humanDetector.detect(session.page);
@@ -197,6 +220,34 @@ export class VfsProviderAdapter implements VisaProviderAdapter {
           action: challenge.actionType ?? HumanActionType.CAPTCHA,
           resumeToStatus: BookingCaseStatus.MONITORING,
           safeMessage: 'Human verification required during availability check.',
+        };
+      }
+
+      const routeProfile = parseVfsRouteProfile(context.providerRoute.configuration, {
+        sourceCountry: context.providerRoute.sourceCountry,
+        destinationCountry: context.providerRoute.destinationCountry,
+      });
+      const capabilities = this.capabilityResolver.resolve(routeProfile);
+
+      if (!capabilities.supportsGroupBooking && context.applicantCount > 1) {
+        return {
+          kind: 'SUCCESS',
+          data: {
+            outcome: 'GROUP_CAPACITY_MISMATCH',
+            requestedApplicants: context.applicantCount,
+            maximumAvailableApplicants: 1,
+          },
+        };
+      }
+
+      if (capabilities.maxApplicants && context.applicantCount > capabilities.maxApplicants) {
+        return {
+          kind: 'SUCCESS',
+          data: {
+            outcome: 'GROUP_CAPACITY_MISMATCH',
+            requestedApplicants: context.applicantCount,
+            maximumAvailableApplicants: capabilities.maxApplicants,
+          },
         };
       }
 

@@ -1,60 +1,27 @@
+import { LOGIN_SELECTORS } from './common/login.selectors.js';
+import { BOOKING_SELECTORS } from './common/booking.selectors.js';
+import { APPLICANT_SELECTORS } from './common/applicant.selectors.js';
+import { STANDARD_V1_SELECTORS } from './profiles/standard-v1.selectors.js';
+import { CALENDAR_V1_SELECTORS } from './profiles/calendar-v1.selectors.js';
+import { EARLIEST_SLOT_V1_SELECTORS } from './profiles/earliest-slot-v1.selectors.js';
+
 export const VFS_SELECTORS = {
-  login: {
-    heading: 'Sign In',
-    emailInput: 'input[name="email"], input[type="email"], #email',
-    passwordInput: 'input[name="password"], input[type="password"], #password',
-    submitButton: 'button[type="submit"], button:has-text("Sign In")',
-  },
-  bookingHome: {
-    heading: 'Dashboard',
-    startNewBookingButton: 'button:has-text("Start New Booking"), a:has-text("Start New Booking"), button:has-text("New Booking")',
-  },
-  appointmentDetails: {
-    heading: 'Appointment Details',
-    centreSelect: 'select[name="centre"], #applicationCentre',
-    categorySelect: 'select[name="category"], #visaCategory',
-    subcategorySelect: 'select[name="subcategory"], #visaSubcategory',
-    continueButton: 'button:has-text("Continue"), button:has-text("Next")',
-  },
-  availability: {
-    heading: 'Appointment Availability',
-    slotNotice: '.slot-notice, .availability-message, [data-testid="availability-notice"]',
-    earliestSlotBadge: '.earliest-slot, [data-testid="earliest-slot"]',
-    noSlotNotice: '.no-slot-notice',
-  },
-  applicantDetails: {
-    heading: 'Applicant Details',
-    firstName: 'input[name="firstName"]',
-    lastName: 'input[name="lastName"]',
-    genderSelect: 'select[name="gender"]',
-    dateOfBirth: 'input[name="dateOfBirth"]',
-    nationality: 'input[name="nationality"], select[name="nationality"]',
-    passportNumber: 'input[name="passportNumber"]',
-    passportExpiry: 'input[name="passportExpiry"]',
-    contactNumber: 'input[name="contactNumber"]',
-    email: 'input[name="email"]',
-    saveApplicantButton: 'button:has-text("Save"), button:has-text("Add Applicant")',
-    continueButton: 'button:has-text("Continue"), button:has-text("Review Details")',
-  },
-  slotSelection: {
-    heading: 'Select Slot',
-    slotItem: '.slot-item, [data-testid="slot-candidate"], input[type="radio"][name="slot"]',
-    continueButton: 'button:has-text("Continue"), button:has-text("Proceed to Payment")',
-  },
-  payment: {
-    heading: 'Payment Details',
-    amount: '.payment-amount, [data-testid="payment-amount"]',
-    currency: '.payment-currency, [data-testid="payment-currency"]',
-    externalReference: '.payment-reference, [data-testid="payment-reference"]',
-    payButton: 'button:has-text("Pay"), button:has-text("Complete Payment")',
-  },
-  confirmation: {
-    heading: 'Appointment Confirmation',
-    referenceNumber: '.confirmation-number, [data-testid="booking-reference"], .booking-ref',
-  },
-  humanVerification: {
-    captchaContainer: '.g-recaptcha, .h-captcha, .cf-turnstile, [data-testid="captcha-container"], #captcha',
-    otpContainer: '.otp-form, [data-testid="otp-container"], input[name="otp"]',
-    manualVerification: '.manual-verification, [data-testid="manual-verification"]',
-  },
+  login: LOGIN_SELECTORS,
+  bookingHome: BOOKING_SELECTORS.bookingHome,
+  appointmentDetails: BOOKING_SELECTORS.appointmentDetails,
+  availability: STANDARD_V1_SELECTORS.availability,
+  applicantDetails: APPLICANT_SELECTORS.applicantDetails,
+  slotSelection: STANDARD_V1_SELECTORS.slotSelection,
+  payment: BOOKING_SELECTORS.payment,
+  confirmation: BOOKING_SELECTORS.confirmation,
+  humanVerification: BOOKING_SELECTORS.humanVerification,
 } as const;
+
+export {
+  LOGIN_SELECTORS,
+  BOOKING_SELECTORS,
+  APPLICANT_SELECTORS,
+  STANDARD_V1_SELECTORS,
+  CALENDAR_V1_SELECTORS,
+  EARLIEST_SLOT_V1_SELECTORS,
+};

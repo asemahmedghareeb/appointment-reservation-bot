@@ -161,7 +161,7 @@ export function Sidebar() {
         }}
       >
         <FileCheck2 size={16} color="#10b981" />
-        <span>VFS Egypt → Greece Active</span>
+        <span>VFS Global Active</span>
       </div>
     </aside>
   );

@@ -1,4 +1,11 @@
 {
+  "countries": {
+    "EG": "Egypt",
+    "GR": "Greece",
+    "HU": "Hungary",
+    "PT": "Portugal",
+    "AT": "Austria"
+  },
   "common": {
     "appName": "VisaFlow",
     "operationsConsole": "Operations Console",
@@ -120,10 +127,12 @@
     "step5Title": "Review & Launch",
     "step5Desc": "Verify case parameters and prepare automation",
     "selectProvider": "Select Provider",
+    "sourceCountry": "Source Country",
     "destinationCountry": "Destination Country",
     "applicationCentre": "Application Centre",
     "visaCategory": "Visa Category",
     "visaSubcategory": "Visa Subcategory",
+    "noRoutesFound": "No available provider routes found",
     "clientName": "Client Name",
     "clientEmail": "Client Email",
     "clientPhone": "Client Phone",
