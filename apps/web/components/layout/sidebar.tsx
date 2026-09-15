@@ -99,6 +99,7 @@ export function Sidebar() {
       <div style={{ padding: '16px 16px 8px 16px' }}>
         <Link
           href="/bookings/new"
+          prefetch={true}
           id="btn-sidebar-new-booking"
           className="btn-primary"
           style={{ width: '100%', boxSizing: 'border-box' }}
@@ -121,6 +122,7 @@ export function Sidebar() {
             <Link
               key={item.href}
               href={item.href}
+              prefetch={true}
               id={`nav-link-${item.href.replace(/\//g, '')}`}
               style={{
                 display: 'flex',

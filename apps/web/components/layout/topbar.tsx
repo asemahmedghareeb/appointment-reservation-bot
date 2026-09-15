@@ -17,7 +17,7 @@ export function Topbar() {
   const { data: notificationsData } = useQuery({
     queryKey: ['notifications', { unreadOnly: true }],
     queryFn: () => api.notifications.list({ unreadOnly: true, limit: 10 }),
-    refetchInterval: 15000,
+    refetchInterval: 60000,
   });
 
   const unreadCount = notificationsData?.total ?? 0;

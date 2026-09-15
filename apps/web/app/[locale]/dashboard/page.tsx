@@ -36,7 +36,7 @@ export default function LocalizedDashboardPage() {
   const { data: summary, isLoading, refetch } = useQuery({
     queryKey: ['dashboard-summary'],
     queryFn: () => api.dashboard.getSummary(),
-    refetchInterval: 10000,
+    refetchInterval: 30000,
   });
 
   const { data: providerHealthData } = useQuery({
