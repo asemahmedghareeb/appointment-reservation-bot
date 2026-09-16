@@ -23,6 +23,10 @@ import {
   Sparkles,
   Timer,
   Zap,
+  Database,
+  UserCheck,
+  RotateCcw,
+  Lock,
 } from 'lucide-react';
 
 export default function LocalizedNewBookingWizardPage() {
@@ -127,6 +131,52 @@ export default function LocalizedNewBookingWizardPage() {
       return list || [];
     },
   });
+
+  // Existing Database Records for Quick Auto-Fill
+  const [selectedExistingApplicantId, setSelectedExistingApplicantId] = useState<string | null>(null);
+
+  const { data: existingApplicantsData, isLoading: loadingExistingApplicants } = useQuery({
+    queryKey: ['existing-applicants-list'],
+    queryFn: () => api.applicants.list({ limit: 100 }),
+  });
+  const existingApplicants = existingApplicantsData?.items || [];
+
+  const handleSelectExistingApplicant = (applicantId: string) => {
+    if (!applicantId) {
+      handleClearSelectedApplicant();
+      return;
+    }
+    const found = existingApplicants.find((a: any) => a.id === applicantId);
+    if (!found) return;
+
+    setSelectedExistingApplicantId(found.id);
+    setApplicantData({
+      firstName: found.firstName || '',
+      lastName: found.lastName || '',
+      gender: found.gender || 'MALE',
+      dateOfBirth: found.dateOfBirth ? found.dateOfBirth.split('T')[0] : '1995-05-15',
+      nationality: found.nationality || 'EG',
+      phone: found.phone || '',
+      email: found.email || '',
+      passportNumber: found.passportMasked || '',
+      passportExpiry: found.passportExpiry ? found.passportExpiry.split('T')[0] : '2030-01-01',
+    });
+  };
+
+  const handleClearSelectedApplicant = () => {
+    setSelectedExistingApplicantId(null);
+    setApplicantData({
+      firstName: '',
+      lastName: '',
+      gender: 'MALE',
+      dateOfBirth: '1995-05-15',
+      nationality: 'EG',
+      phone: '+201001234567',
+      email: 'applicant@example.com',
+      passportNumber: '',
+      passportExpiry: '2030-01-01',
+    });
+  };
 
   // Derived progressive options
   const availableDestinations = React.useMemo(() => {
@@ -254,35 +304,39 @@ export default function LocalizedNewBookingWizardPage() {
         throw new Error('INVALID_PRIMARY_APPLICANT');
       }
 
-      // 1. Create Applicant (or reuse if already exists)
+      // 1. Create Applicant (or reuse if already exists or selected from DB)
       let applicantId: string;
-      try {
-        const createdApplicant = await api.applicants.create({
-          firstName: applicantData.firstName.trim(),
-          lastName: applicantData.lastName.trim(),
-          gender: applicantData.gender,
-          dateOfBirth: new Date(applicantData.dateOfBirth).toISOString(),
-          nationality: applicantData.nationality.trim(),
-          phone: applicantData.phone || undefined,
-          email: applicantData.email || undefined,
-          passportNumber: applicantData.passportNumber.trim().toUpperCase(),
-          passportExpiry: new Date(applicantData.passportExpiry).toISOString(),
-        });
-        applicantId = createdApplicant.id;
-      } catch (err: any) {
-        // If applicant already exists with this passport, reuse existing applicant ID directly or lookup
-        if (err.details?.existingApplicantId) {
-          applicantId = err.details.existingApplicantId;
-        } else {
-          try {
-            const existing = await api.applicants.lookupByPassport(applicantData.passportNumber.trim().toUpperCase());
-            if (existing?.id) {
-              applicantId = existing.id;
-            } else {
+      if (selectedExistingApplicantId) {
+        applicantId = selectedExistingApplicantId;
+      } else {
+        try {
+          const createdApplicant = await api.applicants.create({
+            firstName: applicantData.firstName.trim(),
+            lastName: applicantData.lastName.trim(),
+            gender: applicantData.gender,
+            dateOfBirth: new Date(applicantData.dateOfBirth).toISOString(),
+            nationality: applicantData.nationality.trim(),
+            phone: applicantData.phone || undefined,
+            email: applicantData.email || undefined,
+            passportNumber: applicantData.passportNumber.trim().toUpperCase(),
+            passportExpiry: new Date(applicantData.passportExpiry).toISOString(),
+          });
+          applicantId = createdApplicant.id;
+        } catch (err: any) {
+          // If applicant already exists with this passport, reuse existing applicant ID directly or lookup
+          if (err.details?.existingApplicantId) {
+            applicantId = err.details.existingApplicantId;
+          } else {
+            try {
+              const existing = await api.applicants.lookupByPassport(applicantData.passportNumber.trim().toUpperCase());
+              if (existing?.id) {
+                applicantId = existing.id;
+              } else {
+                throw err;
+              }
+            } catch {
               throw err;
             }
-          } catch {
-            throw err;
           }
         }
       }
@@ -763,12 +817,108 @@ export default function LocalizedNewBookingWizardPage() {
           {/* STEP 2: PRIMARY APPLICANT */}
           {currentStep === 2 && (
             <div id="wizard-step-2" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              <h2 style={{ fontSize: '1.2rem', fontWeight: 600, color: '#f8fafc' }}>
-                {t('step2Title')}
-              </h2>
-              <p style={{ fontSize: '0.875rem', color: '#94a3b8' }}>
-                {t('step2Desc')}
-              </p>
+              <div>
+                <h2 style={{ fontSize: '1.2rem', fontWeight: 600, color: '#f8fafc', marginBottom: '4px' }}>
+                  {t('step2Title')}
+                </h2>
+                <p style={{ fontSize: '0.875rem', color: '#94a3b8', margin: 0 }}>
+                  {t('step2Desc')}
+                </p>
+              </div>
+
+              {/* Database Quick Selector Card */}
+              <div
+                id="card-db-applicant-selector"
+                style={{
+                  padding: '16px 18px',
+                  backgroundColor: 'rgba(59, 130, 246, 0.08)',
+                  border: '1px solid rgba(59, 130, 246, 0.25)',
+                  borderRadius: '10px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '12px',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Database size={16} color="#60a5fa" />
+                    <span style={{ fontSize: '0.875rem', fontWeight: 600, color: '#93c5fd' }}>
+                      {t('orSelectSaved')}
+                    </span>
+                  </div>
+                  {selectedExistingApplicantId && (
+                    <button
+                      type="button"
+                      id="btn-clear-db-applicant"
+                      onClick={handleClearSelectedApplicant}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        background: 'transparent',
+                        border: 'none',
+                        color: '#f87171',
+                        cursor: 'pointer',
+                        fontSize: '0.75rem',
+                        padding: '4px 8px',
+                        borderRadius: '4px',
+                      }}
+                    >
+                      <RotateCcw size={12} />
+                      <span>{t('clearSelection')}</span>
+                    </button>
+                  )}
+                </div>
+
+                <div>
+                  <select
+                    id="select-existing-applicant"
+                    value={selectedExistingApplicantId || ''}
+                    onChange={(e) => handleSelectExistingApplicant(e.target.value)}
+                    style={{
+                      width: '100%',
+                      boxSizing: 'border-box',
+                      padding: '10px 14px',
+                      backgroundColor: 'var(--bg-input)',
+                      border: selectedExistingApplicantId ? '1px solid #3b82f6' : '1px solid var(--border-subtle)',
+                      borderRadius: '8px',
+                      color: '#f8fafc',
+                      fontSize: '0.875rem',
+                      outline: 'none',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <option value="">{t('selectExistingApplicant')}</option>
+                    {existingApplicants.map((app: any) => (
+                      <option key={app.id} value={app.id}>
+                        {app.firstName} {app.lastName} • {app.passportMasked || app.passportNumber || 'N/A'} ({app.nationality})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {selectedExistingApplicantId && (
+                  <div
+                    id="badge-client-data-loaded"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '8px 12px',
+                      backgroundColor: 'rgba(16, 185, 129, 0.12)',
+                      border: '1px solid rgba(16, 185, 129, 0.3)',
+                      borderRadius: '6px',
+                      color: '#6ee7b7',
+                      fontSize: '0.8rem',
+                    }}
+                  >
+                    <UserCheck size={14} />
+                    <span>
+                      {t('clientDataLoaded')}: <strong>{applicantData.firstName} {applicantData.lastName}</strong>
+                    </span>
+                  </div>
+                )}
+              </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                 <div>
@@ -822,14 +972,31 @@ export default function LocalizedNewBookingWizardPage() {
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', color: '#94a3b8', marginBottom: '6px' }}>
-                    {t('passportNumber')} *
-                  </label>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                    <label style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
+                      {t('passportNumber')} *
+                    </label>
+                    {selectedExistingApplicantId && (
+                      <span
+                        style={{
+                          fontSize: '0.7rem',
+                          color: '#60a5fa',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                        }}
+                      >
+                        <Lock size={10} />
+                        {t('savedApplicantBadge')}
+                      </span>
+                    )}
+                  </div>
                   <input
                     id="input-applicant-passport"
                     type="text"
                     dir="ltr"
                     required
+                    readOnly={!!selectedExistingApplicantId}
                     value={applicantData.passportNumber}
                     onChange={(e) => setApplicantData({ ...applicantData, passportNumber: e.target.value })}
                     placeholder="A12345678"
@@ -837,8 +1004,8 @@ export default function LocalizedNewBookingWizardPage() {
                       width: '100%',
                       boxSizing: 'border-box',
                       padding: '10px 14px',
-                      backgroundColor: 'var(--bg-input)',
-                      border: '1px solid var(--border-subtle)',
+                      backgroundColor: selectedExistingApplicantId ? 'rgba(30, 41, 59, 0.8)' : 'var(--bg-input)',
+                      border: selectedExistingApplicantId ? '1px solid rgba(59, 130, 246, 0.4)' : '1px solid var(--border-subtle)',
                       borderRadius: '8px',
                       color: '#f8fafc',
                       fontSize: '0.875rem',

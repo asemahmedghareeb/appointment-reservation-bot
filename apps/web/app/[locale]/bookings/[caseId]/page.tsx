@@ -8,6 +8,7 @@ import { Link, useRouter } from '../../../../i18n/navigation';
 import { api } from '../../../../lib/api/api-client';
 import { AppShell } from '../../../../components/layout/app-shell';
 import { getStatusConfig } from '../../../../lib/formatters/status';
+import { formatTimelineEvent } from '../../../../lib/formatters/timeline';
 import { formatDate, formatDateTime, formatRelativeTime } from '../../../../lib/formatters/dates';
 import { formatCurrency } from '../../../../lib/formatters/numbers';
 import { TechnicalText } from '../../../../components/ui/technical-text';
@@ -836,19 +837,24 @@ export default function LocalizedCaseDetailPage() {
                           flexShrink: 0,
                         }}
                       />
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#f8fafc' }}>
-                          {item.title}
-                        </div>
-                        {item.description && (
-                          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                            {item.description}
+                      {(() => {
+                        const event = formatTimelineEvent(item, locale);
+                        return (
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#f8fafc' }}>
+                              {event.title}
+                            </div>
+                            {event.description && (
+                              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                                {event.description}
+                              </div>
+                            )}
+                            <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '4px' }}>
+                              {formatDateTime(item.timestamp, locale)} ({formatRelativeTime(item.timestamp, locale)})
+                            </div>
                           </div>
-                        )}
-                        <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '4px' }}>
-                          {formatDateTime(item.timestamp, locale)} ({formatRelativeTime(item.timestamp, locale)})
-                        </div>
-                      </div>
+                        );
+                      })()}
                     </div>
                   ))}
                 </div>
