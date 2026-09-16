@@ -1,5 +1,5 @@
 export type { VisaProviderAdapter } from '@visaflow/provider-core';
-export type { Page, Browser, BrowserContext } from 'playwright';
+export type { Page, Browser, BrowserContext, CDPSession } from 'playwright';
 export * from './vfs-provider-adapter.js';
 export * from './config/vfs-adapter-config.js';
 export * from './config/vfs-route-profile.js';

@@ -226,7 +226,22 @@
     "markAsReady": "Mark as Ready",
     "verifying": "Verifying...",
     "refresh": "Refresh",
-    "category": "Category"
+    "category": "Category",
+    "liveMonitorTitle": "Live Bot View",
+    "liveMonitorConnecting": "Connecting to bot screen...",
+    "liveMonitorLive": "LIVE",
+    "liveMonitorStale": "Image has not updated for several seconds",
+    "liveMonitorOffline": "Visual monitor is currently unavailable",
+    "liveMonitorError": "Failed to initialize visual monitoring",
+    "liveMonitorFullscreen": "Fullscreen",
+    "liveMonitorExitFullscreen": "Exit Fullscreen",
+    "liveMonitorLastUpdated": "Last updated {seconds}s ago",
+    "liveMonitorLastUpdatedJustNow": "Last updated just now",
+    "liveMonitorBotStatus": "Bot Status",
+    "liveMonitorVisualStatus": "Live Monitor",
+    "liveMonitorProviderBrowser": "Provider Browser",
+    "liveMonitorReconnect": "Reconnect Screen",
+    "liveMonitorNoStreamDesc": "No active browser session for this case. Live view will start automatically once automation begins."
   },
   "clients": {
     "title": "Clients",

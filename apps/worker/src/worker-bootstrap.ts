@@ -15,6 +15,7 @@ import { SessionRecoveryService } from './reliability/session-recovery.service.j
 import { ExpiredSessionCleanupJob } from './jobs/maintenance/expired-session-cleanup.job.js';
 import { PaymentExpiryJob } from './jobs/maintenance/payment-expiry.job.js';
 import { StuckCaseRecoveryJob } from './jobs/maintenance/stuck-case-recovery.job.js';
+import { LiveVisualMonitorService } from './monitoring/live-visual-monitor.service.js';
 import { workerLogger } from './observability/safe-logger.js';
 
 export class WorkerBootstrap {
@@ -23,6 +24,7 @@ export class WorkerBootstrap {
   private bookingWorker?: BookingWorker;
   private sessionResumeWorker?: SessionResumeWorker;
   private sessionManager?: VfsBrowserSessionManager;
+  private visualMonitorService?: LiveVisualMonitorService;
   private shutdownService: GracefulShutdownService;
   private maintenanceInterval?: NodeJS.Timeout;
 
@@ -81,7 +83,11 @@ export class WorkerBootstrap {
       sessionService,
     );
 
+    // Initialize passive live visual monitor (sidecar only)
+    this.visualMonitorService = new LiveVisualMonitorService(this.config, this.sessionManager);
+
     // Register resources with GracefulShutdownService
+    this.shutdownService.register('visual-monitor', () => this.visualMonitorService?.close() ?? Promise.resolve());
     this.shutdownService.register('availability-worker', () => this.availabilityWorker?.close() ?? Promise.resolve());
     this.shutdownService.register('booking-worker', () => this.bookingWorker?.close() ?? Promise.resolve());
     this.shutdownService.register('session-resume-worker', () => this.sessionResumeWorker?.close() ?? Promise.resolve());
@@ -90,6 +96,7 @@ export class WorkerBootstrap {
     this.availabilityWorker.start();
     this.bookingWorker.start();
     this.sessionResumeWorker.start();
+    await this.visualMonitorService.start();
 
     // 2. Setup periodic maintenance cycle (every 60s)
     const cleanupJob = new ExpiredSessionCleanupJob();

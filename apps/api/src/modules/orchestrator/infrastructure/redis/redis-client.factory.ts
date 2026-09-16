@@ -61,3 +61,8 @@ export function createRedisQueueClient(urlOverride?: string): Redis {
     maxRetriesPerRequest: null,
   });
 }
+
+export function createRedisClient(urlOverride?: string): Redis {
+  const { url, options } = getRedisOptions(urlOverride);
+  return new Redis(url, options);
+}

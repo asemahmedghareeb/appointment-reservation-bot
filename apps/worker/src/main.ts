@@ -1,7 +1,7 @@
 import { WorkerBootstrap } from './worker-bootstrap.js';
 
 async function bootstrap() {
-  console.log('Starting VisaFlow worker...');
+  console.log('Starting VisaFlow worker with LiveVisualMonitor...');
   const worker = new WorkerBootstrap();
   await worker.start();
 

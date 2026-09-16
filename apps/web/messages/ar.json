@@ -226,7 +226,22 @@
     "markAsReady": "تحديد كجاهز",
     "verifying": "جاري التحقق...",
     "refresh": "تحديث",
-    "category": "فئة التأشيرة"
+    "category": "الفئة",
+    "liveMonitorTitle": "المراقبة الحية للبوت",
+    "liveMonitorConnecting": "جاري الاتصال بشاشة البوت...",
+    "liveMonitorLive": "مباشر",
+    "liveMonitorStale": "الصورة لم تتحدث منذ عدة ثوانٍ",
+    "liveMonitorOffline": "المراقبة المرئية غير متاحة حاليًا",
+    "liveMonitorError": "تعذر تشغيل المراقبة المرئية",
+    "liveMonitorFullscreen": "ملء الشاشة",
+    "liveMonitorExitFullscreen": "إلغاء ملء الشاشة",
+    "liveMonitorLastUpdated": "آخر تحديث منذ {seconds} ثانية",
+    "liveMonitorLastUpdatedJustNow": "آخر تحديث الآن",
+    "liveMonitorBotStatus": "حالة البوت",
+    "liveMonitorVisualStatus": "المراقبة الحية",
+    "liveMonitorProviderBrowser": "متصفح مزود الخدمة",
+    "liveMonitorReconnect": "إعادة الاتصال بالشاشة",
+    "liveMonitorNoStreamDesc": "لا توجد جلسة متصفح نشطة حاليًا لهذا الطلب. سيتم عرض البث تلقائيًا فور بدء تشغيل الأتمتة."
   },
   "clients": {
     "title": "العملاء",

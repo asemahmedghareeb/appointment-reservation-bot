@@ -12,6 +12,7 @@ import { formatTimelineEvent } from '../../../../lib/formatters/timeline';
 import { formatDate, formatDateTime, formatRelativeTime } from '../../../../lib/formatters/dates';
 import { formatCurrency } from '../../../../lib/formatters/numbers';
 import { TechnicalText } from '../../../../components/ui/technical-text';
+import { LiveBrowserViewport } from '../../../../components/monitoring/live-browser-viewport';
 import { BookingCaseStatus } from '@visaflow/shared-types';
 import {
   Play,
@@ -742,6 +743,13 @@ export default function LocalizedCaseDetailPage() {
 
           {/* RIGHT COLUMN */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            {/* Live Bot Visual Monitor Card */}
+            <LiveBrowserViewport
+              caseId={caseId}
+              providerName={caseDetail.provider?.name}
+              botStatus={caseDetail.automationSession?.status || caseDetail.status}
+            />
+
             {/* Live Automation Session Card */}
             <div id="case-automation-session-card" className="glass-card" style={{ padding: '24px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>

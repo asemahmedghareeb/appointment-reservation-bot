@@ -13,6 +13,11 @@ export interface WorkerConfig {
   sessionTtlMinutes: number;
   workerShutdownTimeoutMs?: number;
   productionSafeMode?: boolean;
+  liveVisualMonitorEnabled?: boolean;
+  liveVisualMonitorJpegQuality?: number;
+  liveVisualMonitorMaxWidth?: number;
+  liveVisualMonitorMaxHeight?: number;
+  liveVisualMonitorEveryNthFrame?: number;
 }
 
 export function loadWorkerConfig(): WorkerConfig {
@@ -34,6 +39,11 @@ export function loadWorkerConfig(): WorkerConfig {
     sessionTtlMinutes: env.AUTOMATION_SESSION_TTL_MINUTES ?? 30,
     workerShutdownTimeoutMs: 10000,
     productionSafeMode: process.env.PRODUCTION_SAFE_MODE === 'true',
+    liveVisualMonitorEnabled: process.env.LIVE_VISUAL_MONITOR_ENABLED !== 'false',
+    liveVisualMonitorJpegQuality: Number(process.env.LIVE_VISUAL_MONITOR_JPEG_QUALITY) || 50,
+    liveVisualMonitorMaxWidth: Number(process.env.LIVE_VISUAL_MONITOR_MAX_WIDTH) || 960,
+    liveVisualMonitorMaxHeight: Number(process.env.LIVE_VISUAL_MONITOR_MAX_HEIGHT) || 600,
+    liveVisualMonitorEveryNthFrame: Number(process.env.LIVE_VISUAL_MONITOR_EVERY_NTH_FRAME) || 2,
   };
 
 

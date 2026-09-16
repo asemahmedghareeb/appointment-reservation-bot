@@ -9,10 +9,12 @@ import { MetricsService } from './metrics/metrics.service.js';
 import { MetricsController } from './metrics/metrics.controller.js';
 import { StuckCaseDetectorService } from './recovery/stuck-case-detector.service.js';
 import { RecoveryService } from './recovery/recovery.service.js';
+import { LiveMonitorController } from './live-monitor/live-monitor.controller.js';
+import { LiveMonitorService } from './live-monitor/live-monitor.service.js';
 
 @Global()
 @Module({
-  controllers: [OperationsController, MetricsController],
+  controllers: [OperationsController, MetricsController, LiveMonitorController],
   providers: [
     OperationsService,
     OperationsEventsService,
@@ -22,6 +24,7 @@ import { RecoveryService } from './recovery/recovery.service.js';
     MetricsService,
     StuckCaseDetectorService,
     RecoveryService,
+    LiveMonitorService,
   ],
   exports: [
     OperationsService,
@@ -31,6 +34,7 @@ import { RecoveryService } from './recovery/recovery.service.js';
     QueueHealthService,
     MetricsService,
     RecoveryService,
+    LiveMonitorService,
   ],
 })
 export class OperationsModule {}
