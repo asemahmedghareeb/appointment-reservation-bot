@@ -10,14 +10,35 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   app.enableCors({
-    origin: [
-      'http://localhost:3000',
-      'http://localhost:3001',
-      ...(env.NODE_ENV === 'production' && process.env.CORS_ORIGIN
-        ? [process.env.CORS_ORIGIN]
-        : []),
-    ],
+    origin: (
+      origin: string | undefined,
+      callback: (err: Error | null, allow?: boolean) => void,
+    ) => {
+      // Allow localhost, 127.0.0.1, [::1], and any dev origin
+      if (
+        !origin ||
+        /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:[0-9]+)?$/.test(origin) ||
+        env.NODE_ENV !== 'production'
+      ) {
+        return callback(null, true);
+      }
+      if (process.env.CORS_ORIGIN && origin === process.env.CORS_ORIGIN) {
+        return callback(null, true);
+      }
+      return callback(null, true);
+    },
     credentials: true,
+    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'Accept',
+      'x-user-id',
+      'X-Requested-With',
+      'Range',
+      'Origin',
+    ],
+    exposedHeaders: ['Content-Range', 'X-Content-Range'],
   });
 
   app.enableShutdownHooks();

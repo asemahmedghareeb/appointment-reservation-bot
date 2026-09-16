@@ -24,11 +24,16 @@ async function fetchJson<T>(path: string, options?: RequestInit): Promise<T> {
 
   if (!response.ok) {
     let errorMessage = `API Error: ${response.status} ${response.statusText}`;
+    let errorCode: string | undefined;
+    let errorDetails: any = undefined;
+
     try {
       const errorBody = await response.json();
       if (errorBody) {
-        if (errorBody.error && errorBody.error.message) {
-          errorMessage = errorBody.error.message;
+        if (errorBody.error) {
+          errorCode = errorBody.error.code;
+          errorMessage = errorBody.error.message || errorBody.error.code;
+          errorDetails = errorBody.error.details;
         } else if (errorBody.message) {
           errorMessage = Array.isArray(errorBody.message)
             ? errorBody.message.join(', ')
@@ -38,7 +43,12 @@ async function fetchJson<T>(path: string, options?: RequestInit): Promise<T> {
     } catch {
       // ignore json parse error
     }
-    throw new Error(errorMessage);
+
+    const err: any = new Error(errorMessage);
+    err.code = errorCode;
+    err.details = errorDetails;
+    err.status = response.status;
+    throw err;
   }
 
   if (response.status === 204) {

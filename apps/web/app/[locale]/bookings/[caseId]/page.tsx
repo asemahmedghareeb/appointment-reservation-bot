@@ -75,13 +75,27 @@ export default function LocalizedCaseDetailPage() {
   });
 
   const startAutomationMutation = useMutation({
-    mutationFn: () => api.orchestrator.startAutomation(caseId),
+    mutationFn: () => {
+      setActionError(null);
+      return api.orchestrator.startAutomation(caseId);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['case-detail', caseId] });
       queryClient.invalidateQueries({ queryKey: ['case-timeline', caseId] });
       setActionError(null);
     },
-    onError: (err: any) => setActionError(err.message),
+    onError: (err: any) => {
+      if (
+        err.message?.includes('Current status: AUTHENTICATING') ||
+        err.message?.includes('Current status: MONITORING')
+      ) {
+        queryClient.invalidateQueries({ queryKey: ['case-detail', caseId] });
+        queryClient.invalidateQueries({ queryKey: ['case-timeline', caseId] });
+        setActionError(null);
+        return;
+      }
+      setActionError(err.message);
+    },
   });
 
   const resumeMutation = useMutation({
@@ -284,9 +298,29 @@ export default function LocalizedCaseDetailPage() {
               borderRadius: '8px',
               color: '#fca5a5',
               fontSize: '0.875rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '12px',
             }}
           >
-            {actionError}
+            <span>{actionError}</span>
+            <button
+              type="button"
+              onClick={() => setActionError(null)}
+              aria-label={locale === 'ar' ? 'إغلاق التنبيه' : 'Dismiss error'}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: '#fca5a5',
+                cursor: 'pointer',
+                padding: '2px 6px',
+                fontSize: '1rem',
+                lineHeight: 1,
+              }}
+            >
+              ✕
+            </button>
           </div>
         )}
 

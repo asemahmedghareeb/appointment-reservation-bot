@@ -270,16 +270,20 @@ export default function LocalizedNewBookingWizardPage() {
         });
         applicantId = createdApplicant.id;
       } catch (err: any) {
-        // If applicant already exists with this passport, lookup and reuse
-        try {
-          const existing = await api.applicants.lookupByPassport(applicantData.passportNumber.trim().toUpperCase());
-          if (existing?.id) {
-            applicantId = existing.id;
-          } else {
+        // If applicant already exists with this passport, reuse existing applicant ID directly or lookup
+        if (err.details?.existingApplicantId) {
+          applicantId = err.details.existingApplicantId;
+        } else {
+          try {
+            const existing = await api.applicants.lookupByPassport(applicantData.passportNumber.trim().toUpperCase());
+            if (existing?.id) {
+              applicantId = existing.id;
+            } else {
+              throw err;
+            }
+          } catch {
             throw err;
           }
-        } catch {
-          throw new Error(err.message || 'Failed to create applicant');
         }
       }
 
