@@ -128,6 +128,17 @@ export class AvailabilityWorker {
         return { outcome: 'FAILED' };
       }
 
+      if (authRes.kind === 'RETRYABLE_FAILURE') {
+        await this.repo.recordActivityLog({
+          bookingCaseId: caseId,
+          actorType: StateActorType.WORKER,
+          actorId: this.config.workerId,
+          eventType: 'AUTOMATION_ERROR',
+          message: authRes.safeMessage || 'فشلت محاولة تسجيل الدخول لمزود الخدمة، سيتم إعادة المحاولة',
+        });
+        throw new Error(authRes.safeMessage || 'Authentication failed (retryable)');
+      }
+
       // Route inspection
       const inspectRes = await adapter.inspectRoute(context);
       if (inspectRes.kind === 'HUMAN_ACTION_REQUIRED') {
@@ -141,6 +152,29 @@ export class AvailabilityWorker {
           metadata: { resumeToStatus: inspectRes.resumeToStatus, humanActionType: inspectRes.action },
         });
         return { outcome: 'HUMAN_ACTION_REQUIRED' };
+      }
+
+      if (inspectRes.kind === 'PERMANENT_FAILURE') {
+        await this.repo.atomicConditionalTransition({
+          caseId,
+          fromStatus: BookingCaseStatus.AUTHENTICATING,
+          toStatus: BookingCaseStatus.FAILED,
+          actorType: StateActorType.WORKER,
+          actorId: this.config.workerId,
+          reason: inspectRes.safeMessage,
+        });
+        return { outcome: 'FAILED' };
+      }
+
+      if (inspectRes.kind === 'RETRYABLE_FAILURE') {
+        await this.repo.recordActivityLog({
+          bookingCaseId: caseId,
+          actorType: StateActorType.WORKER,
+          actorId: this.config.workerId,
+          eventType: 'AUTOMATION_ERROR',
+          message: inspectRes.safeMessage || 'فحص المسار قيد المحاولة مجدداً',
+        });
+        throw new Error(inspectRes.safeMessage || 'Route inspection failed (retryable)');
       }
 
       const nextStatus = context.providerRoute.bookingMode === 'WAITING_QUEUE'

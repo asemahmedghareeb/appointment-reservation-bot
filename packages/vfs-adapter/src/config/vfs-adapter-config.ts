@@ -4,6 +4,12 @@ export interface VfsAdapterConfig {
   actionTimeoutMs: number;
   allowedOrigins: string[];
   sessionTtlMinutes: number;
+  proxy?: {
+    server: string;
+    bypass?: string;
+    username?: string;
+    password?: string;
+  };
 }
 
 export const DEFAULT_VFS_CONFIG: VfsAdapterConfig = {

@@ -20,6 +20,7 @@ interface CaseViewerState {
   caseId: string;
   viewers: Set<Subscriber<MessageEvent>>;
   heartbeatTimer?: NodeJS.Timeout;
+  lastFrameMessage?: string;
 }
 
 @Injectable()
@@ -39,8 +40,17 @@ export class LiveMonitorService implements OnModuleInit, OnModuleDestroy {
           const caseId = channel.slice('visaflow:live-frames:'.length);
           if (!caseId) return;
 
-          const state = this.activeCases.get(caseId);
-          if (!state || state.viewers.size === 0) return;
+          let state = this.activeCases.get(caseId);
+          if (!state) {
+            state = {
+              caseId,
+              viewers: new Set<Subscriber<MessageEvent>>(),
+            };
+            this.activeCases.set(caseId, state);
+          }
+
+          state.lastFrameMessage = message;
+          if (state.viewers.size === 0) return;
 
           const event: MessageEvent = {
             type: 'frame',
@@ -118,14 +128,30 @@ export class LiveMonitorService implements OnModuleInit, OnModuleDestroy {
         data: JSON.stringify({ status: 'CONNECTING', caseId }),
       });
 
+      // If we already have a recent frame in API memory, immediately push it!
+      if (state.lastFrameMessage) {
+        subscriber.next({
+          type: 'frame',
+          data: state.lastFrameMessage,
+        });
+      }
+
       // Always signal worker that a viewer became active (idempotent on worker)
       this.sendSignal('START_VIEWING', caseId);
 
       // Ensure heartbeat timer is running while active viewers exist
       if (!state.heartbeatTimer) {
         state.heartbeatTimer = setInterval(() => {
-          this.sendSignal('HEARTBEAT', caseId);
-        }, 10000);
+          const current = this.activeCases.get(caseId);
+          if (!current || current.viewers.size === 0) return;
+
+          // If we haven't received a frame yet, re-assert START_VIEWING so worker picks up as soon as browser opens
+          if (!current.lastFrameMessage) {
+            this.sendSignal('START_VIEWING', caseId);
+          } else {
+            this.sendSignal('HEARTBEAT', caseId);
+          }
+        }, 2500);
       }
 
       let isCleanedUp = false;

@@ -7,6 +7,9 @@ export class VfsBrowserSessionManager {
   private readonly sessions = new Map<string, VfsBrowserSession>();
   private readonly factory: VfsBrowserFactory;
 
+  public onSessionCreated?: (caseId: string, session: VfsBrowserSession) => void;
+  public onSessionClosed?: (caseId: string) => void;
+
   constructor(
     private readonly config: VfsAdapterConfig,
     private readonly workerId: string = 'worker-1',
@@ -46,6 +49,11 @@ export class VfsBrowserSessionManager {
     );
 
     this.sessions.set(caseId, session);
+    try {
+      this.onSessionCreated?.(caseId, session);
+    } catch {
+      // Passive callback errors must never impact automation flow
+    }
     return session;
   }
 
@@ -54,12 +62,22 @@ export class VfsBrowserSessionManager {
     if (session) {
       logSafeBrowserEvent('Closing VFS browser session', { caseId });
       this.sessions.delete(caseId);
+      try {
+        this.onSessionClosed?.(caseId);
+      } catch {
+        // Ignore
+      }
       await session.close();
     }
   }
 
   async closeAll(): Promise<void> {
     for (const [caseId, session] of this.sessions.entries()) {
+      try {
+        this.onSessionClosed?.(caseId);
+      } catch {
+        // Ignore
+      }
       await session.close().catch(() => {});
       this.sessions.delete(caseId);
     }

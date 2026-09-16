@@ -47,12 +47,22 @@ export class WorkerBootstrap {
     const sessionRecovery = new SessionRecoveryService(this.config.workerId);
     await sessionRecovery.recoverStartupSessions();
 
+    const proxyConfig = this.config.vfsProxyServer
+      ? {
+          server: this.config.vfsProxyServer,
+          ...(this.config.vfsProxyUsername ? { username: this.config.vfsProxyUsername } : {}),
+          ...(this.config.vfsProxyPassword ? { password: this.config.vfsProxyPassword } : {}),
+          ...(this.config.vfsProxyBypass ? { bypass: this.config.vfsProxyBypass } : {}),
+        }
+      : undefined;
+
     const vfsConfig = createVfsConfig({
       headless: this.config.vfsHeadless,
       navigationTimeoutMs: this.config.vfsNavTimeoutMs,
       actionTimeoutMs: this.config.vfsActionTimeoutMs,
       allowedOrigins: this.config.vfsAllowedOrigins,
       sessionTtlMinutes: this.config.sessionTtlMinutes,
+      ...(proxyConfig ? { proxy: proxyConfig } : {}),
     });
 
     this.sessionManager = new VfsBrowserSessionManager(vfsConfig, this.config.workerId);

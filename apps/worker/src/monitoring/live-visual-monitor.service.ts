@@ -1,5 +1,5 @@
 import { Redis } from 'ioredis';
-import type { CDPSession, VfsBrowserSessionManager } from '@visaflow/vfs-adapter';
+import type { CDPSession, VfsBrowserSession, VfsBrowserSessionManager } from '@visaflow/vfs-adapter';
 import type { WorkerConfig } from '../config/worker.config.js';
 import { getRedisOptions } from '../config/worker.config.js';
 import { workerLogger } from '../observability/safe-logger.js';
@@ -22,12 +22,15 @@ interface ActiveScreencast {
   cdp: CDPSession;
   viewerCount: number;
   lastHeartbeat: number;
+  lastFrame?: string;
+  lastFrameSentAt?: number;
 }
 
 export class LiveVisualMonitorService {
   private subscriberClient?: Redis;
   private publisherClient?: Redis;
   private readonly activeScreencasts = new Map<string, ActiveScreencast>();
+  private readonly pendingViewers = new Map<string, number>(); // caseId -> lastViewerSignalAt
   private heartbeatInterval?: NodeJS.Timeout;
   private isRunning = false;
 
@@ -52,6 +55,22 @@ export class LiveVisualMonitorService {
         getRedisOptions(this.config.redisUrl),
       );
 
+      // Hook sessionManager lifecycle: if a viewer was waiting for a session, start screencast immediately!
+      this.sessionManager.onSessionCreated = (caseId, session) => {
+        if (this.pendingViewers.has(caseId)) {
+          this.pendingViewers.delete(caseId);
+          this.startScreencastForSession(caseId, session).catch((err) => {
+            workerLogger.warn(`[LiveVisualMonitor] Error auto-starting screencast for ${caseId}: ${err.message}`);
+          });
+        }
+      };
+
+      this.sessionManager.onSessionClosed = (caseId) => {
+        this.pendingViewers.delete(caseId);
+        this.stopScreencast(caseId).catch(() => {});
+        this.publishOfflineStatus(caseId);
+      };
+
       this.subscriberClient.on('pmessage', (_pattern, channel, message) => {
         try {
           const payload = JSON.parse(message) as LiveSignalPayload;
@@ -71,10 +90,10 @@ export class LiveVisualMonitorService {
       // Subscribe to all live viewer signals
       await this.subscriberClient.psubscribe('visaflow:live-signals:*');
 
-      // Cleanup stale screencasts where viewers disappeared without sending STOP_VIEWING
+      // Periodic check: cleanup stale viewers AND push keep-alive frames for static pages
       this.heartbeatInterval = setInterval(() => {
         this.pruneStaleScreencasts();
-      }, 10000);
+      }, 2500);
 
       this.isRunning = true;
       workerLogger.info('LiveVisualMonitorService active and listening for viewer signals.');
@@ -104,18 +123,34 @@ export class LiveVisualMonitorService {
     if (existing) {
       existing.viewerCount++;
       existing.lastHeartbeat = Date.now();
+      // Immediately push cached frame so viewer gets instant display without waiting for repaint
+      if (existing.lastFrame) {
+        this.publishFrame(caseId, existing.lastFrame);
+      }
       return;
     }
 
     const session = this.sessionManager.getSession(caseId);
     if (!session || !session.page || session.page.isClosed()) {
-      // No active page found, notify viewer that visual monitor is OFFLINE
-      this.publishOfflineStatus(caseId);
+      // Record as pending viewer so when the worker starts the session, screencast attaches immediately
+      this.pendingViewers.set(caseId, Date.now());
+      return;
+    }
+
+    await this.startScreencastForSession(caseId, session);
+  }
+
+  private async startScreencastForSession(caseId: string, session: VfsBrowserSession): Promise<void> {
+    if (this.activeScreencasts.has(caseId)) {
+      return;
+    }
+
+    const page = session.page;
+    if (!page || page.isClosed()) {
       return;
     }
 
     try {
-      const page = session.page;
       const cdp = await page.context().newCDPSession(page);
 
       await cdp.send('Page.enable');
@@ -132,7 +167,26 @@ export class LiveVisualMonitorService {
         cdp,
         viewerCount: 1,
         lastHeartbeat: Date.now(),
+        lastFrameSentAt: Date.now(),
       };
+
+      // Immediately take a snapshot so viewers don't have to wait for Chromium compositor repaint
+      const initialScreenshot = await cdp.send('Page.captureScreenshot', {
+        format: 'jpeg',
+        quality: this.config.liveVisualMonitorJpegQuality ?? 50,
+      }).catch(() => null);
+
+      if (initialScreenshot?.data) {
+        handle.lastFrame = initialScreenshot.data;
+        handle.lastFrameSentAt = Date.now();
+        this.publishFrame(caseId, initialScreenshot.data);
+      }
+
+      // Immediately handle page closure to unhook and emit OFFLINE
+      page.once?.('close', () => {
+        this.stopScreencast(caseId).catch(() => {});
+        this.publishOfflineStatus(caseId);
+      });
 
       cdp.on('Page.screencastFrame', async ({ data, sessionId }) => {
         // 1. Immediately acknowledge the frame to unblock Chromium compositor
@@ -141,6 +195,9 @@ export class LiveVisualMonitorService {
         } catch {
           // Session may be closing
         }
+
+        handle.lastFrame = data;
+        handle.lastFrameSentAt = Date.now();
 
         // 2. Asynchronously publish frame to Redis
         this.publishFrame(caseId, data);
@@ -158,6 +215,15 @@ export class LiveVisualMonitorService {
     const existing = this.activeScreencasts.get(caseId);
     if (existing) {
       existing.lastHeartbeat = Date.now();
+    } else {
+      if (this.pendingViewers.has(caseId)) {
+        this.pendingViewers.set(caseId, Date.now());
+      }
+      const session = this.sessionManager.getSession(caseId);
+      if (session && session.page && !session.page.isClosed()) {
+        this.pendingViewers.delete(caseId);
+        this.startScreencastForSession(caseId, session).catch(() => {});
+      }
     }
   }
 
@@ -193,6 +259,19 @@ export class LiveVisualMonitorService {
       if (now - handle.lastHeartbeat > 25000) {
         workerLogger.info(`[LiveVisualMonitor] Pruning stale screencast for case ${caseId} (no viewer heartbeat)`);
         this.stopScreencast(caseId).catch(() => {});
+        continue;
+      }
+
+      // Static page keep-alive: if viewers are active and no frame was sent for > 2.5s, re-publish lastFrame
+      if (handle.viewerCount > 0 && handle.lastFrame && (now - (handle.lastFrameSentAt ?? 0) > 2500)) {
+        handle.lastFrameSentAt = now;
+        this.publishFrame(caseId, handle.lastFrame);
+      }
+    }
+    // Prune pending viewers older than 30s
+    for (const [caseId, ts] of this.pendingViewers.entries()) {
+      if (now - ts > 30000) {
+        this.pendingViewers.delete(caseId);
       }
     }
   }

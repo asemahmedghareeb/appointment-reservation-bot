@@ -56,6 +56,7 @@ describe('LiveVisualMonitorService Unit Tests', () => {
       goto: vi.fn(),
       setViewportSize: vi.fn(),
       close: vi.fn(),
+      once: vi.fn(),
     };
 
     mockSessionManager = {

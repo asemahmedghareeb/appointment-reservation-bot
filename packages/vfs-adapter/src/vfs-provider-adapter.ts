@@ -92,7 +92,11 @@ export class VfsProviderAdapter implements VisaProviderAdapter {
     const session = await this.sessionManager.getOrCreateSession(context.caseId);
 
     try {
-      await session.navigate(routeProfile.entryUrl);
+      const authUrl = routeProfile.entryUrl.includes('/application-detail')
+        ? routeProfile.entryUrl.replace('/application-detail', '/login')
+        : routeProfile.entryUrl;
+
+      await session.navigate(authUrl);
 
       // Check human challenge before touching credentials
       const preChallenge = await this.humanDetector.detect(session.page);
@@ -137,6 +141,22 @@ export class VfsProviderAdapter implements VisaProviderAdapter {
       };
     } catch (err: any) {
       logSafeBrowserEvent('Authentication error', { caseId: context.caseId, message: err.message });
+      try {
+        const challengeOnErr = await this.humanDetector.detect(session.page);
+        if (challengeOnErr.detected) {
+          return {
+            kind: 'HUMAN_ACTION_REQUIRED',
+            action: challengeOnErr.actionType ?? HumanActionType.MANUAL_VERIFICATION,
+            resumeToStatus: BookingCaseStatus.AUTHENTICATING,
+            safeMessage: challengeOnErr.details || 'Human verification or security block detected during authentication.',
+            checkpoint: {
+              pageType: VfsPageType.LOGIN,
+              currentPath: session.getSafeCurrentPath(),
+            },
+          };
+        }
+      } catch {}
+
       return {
         kind: 'RETRYABLE_FAILURE',
         code: 'VFS_AUTH_NAVIGATION_FAILED',

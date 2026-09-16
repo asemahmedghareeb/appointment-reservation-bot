@@ -18,6 +18,10 @@ export interface WorkerConfig {
   liveVisualMonitorMaxWidth?: number;
   liveVisualMonitorMaxHeight?: number;
   liveVisualMonitorEveryNthFrame?: number;
+  vfsProxyServer?: string;
+  vfsProxyUsername?: string;
+  vfsProxyPassword?: string;
+  vfsProxyBypass?: string;
 }
 
 export function loadWorkerConfig(): WorkerConfig {
@@ -44,6 +48,10 @@ export function loadWorkerConfig(): WorkerConfig {
     liveVisualMonitorMaxWidth: Number(process.env.LIVE_VISUAL_MONITOR_MAX_WIDTH) || 960,
     liveVisualMonitorMaxHeight: Number(process.env.LIVE_VISUAL_MONITOR_MAX_HEIGHT) || 600,
     liveVisualMonitorEveryNthFrame: Number(process.env.LIVE_VISUAL_MONITOR_EVERY_NTH_FRAME) || 2,
+    ...(process.env.VFS_PROXY_SERVER ? { vfsProxyServer: process.env.VFS_PROXY_SERVER } : {}),
+    ...(process.env.VFS_PROXY_USERNAME ? { vfsProxyUsername: process.env.VFS_PROXY_USERNAME } : {}),
+    ...(process.env.VFS_PROXY_PASSWORD ? { vfsProxyPassword: process.env.VFS_PROXY_PASSWORD } : {}),
+    ...(process.env.VFS_PROXY_BYPASS ? { vfsProxyBypass: process.env.VFS_PROXY_BYPASS } : {}),
   };
 
 

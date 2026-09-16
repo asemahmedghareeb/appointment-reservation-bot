@@ -78,7 +78,7 @@ async function main() {
         bookingMode: BookingMode.APPOINTMENT_CALENDAR,
         enabled: true,
         configurationJson: {
-          entryUrl: 'https://visa.vfsglobal.com/egy/en/hun/application-detail',
+          entryUrl: 'https://visa.vfsglobal.com/egy/en/hun/login',
           availabilityMode: 'CALENDAR',
           pageProfile: 'VFS_CALENDAR_V1',
           capabilities: {
@@ -102,7 +102,7 @@ async function main() {
         bookingMode: BookingMode.APPOINTMENT_CALENDAR,
         enabled: true,
         configurationJson: {
-          entryUrl: 'https://visa.vfsglobal.com/egy/en/hun/application-detail',
+          entryUrl: 'https://visa.vfsglobal.com/egy/en/hun/login',
           availabilityMode: 'CALENDAR',
           pageProfile: 'VFS_CALENDAR_V1',
           capabilities: {
@@ -142,7 +142,7 @@ async function main() {
           bookingMode: BookingMode.APPOINTMENT_CALENDAR,
           enabled: true,
           configurationJson: {
-            entryUrl: 'https://visa.vfsglobal.com/egy/en/grc/application-detail',
+            entryUrl: 'https://visa.vfsglobal.com/egy/en/grc/login',
             availabilityMode: 'EARLIEST_SLOT',
             pageProfile: 'VFS_STANDARD_V1',
             capabilities: {
@@ -165,7 +165,7 @@ async function main() {
         bookingMode: BookingMode.APPOINTMENT_CALENDAR,
         enabled: true,
         configurationJson: {
-          entryUrl: 'https://visa.vfsglobal.com/egy/en/grc/application-detail',
+          entryUrl: 'https://visa.vfsglobal.com/egy/en/grc/login',
           availabilityMode: 'EARLIEST_SLOT',
           pageProfile: 'VFS_STANDARD_V1',
           capabilities: {
@@ -190,7 +190,7 @@ async function main() {
           bookingMode: BookingMode.APPOINTMENT_CALENDAR,
           enabled: true,
           configurationJson: {
-            entryUrl: 'https://visa.vfsglobal.com/egy/en/aut/application-detail',
+            entryUrl: 'https://visa.vfsglobal.com/egy/en/aut/login',
             availabilityMode: 'CALENDAR',
             pageProfile: 'VFS_CALENDAR_V1',
             capabilities: {
@@ -216,7 +216,7 @@ async function main() {
           bookingMode: BookingMode.APPOINTMENT_CALENDAR,
           enabled: true,
           configurationJson: {
-            entryUrl: 'https://visa.vfsglobal.com/egy/en/prt/application-detail',
+            entryUrl: 'https://visa.vfsglobal.com/egy/en/prt/login',
             availabilityMode: 'EARLIEST_SLOT',
             pageProfile: 'VFS_EARLIEST_SLOT_V1',
             capabilities: {

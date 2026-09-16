@@ -135,7 +135,8 @@ export function LiveBrowserViewport({
     const timer = setInterval(() => {
       if (!lastFrameTime) {
         const elapsedSinceConnect = Math.floor((Date.now() - connectTimeRef.current) / 1000);
-        if (elapsedSinceConnect > 15) {
+        const timeoutThreshold = (botStatus === 'ACTIVE' || botStatus === 'STARTING') ? 15 : 8;
+        if (elapsedSinceConnect > timeoutThreshold) {
           setVisualStatus((prev) => (prev === 'CONNECTING' ? 'OFFLINE' : prev));
         }
         return;

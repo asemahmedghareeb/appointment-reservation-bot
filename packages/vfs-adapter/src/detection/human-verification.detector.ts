@@ -52,10 +52,25 @@ export class HumanVerificationDetector {
 
       // 4. Text-based heuristic checks
       const bodyText = await page.textContent('body').catch(() => '') || '';
+      const titleText = await page.title().catch(() => '') || '';
+      const combinedText = `${titleText} ${bodyText}`;
+
+      // Check VFS IP rate limit / session block message or page-not-found redirect
       if (
-        /please verify you are human|turnstile|verify your identity with otp|one-time password/i.test(bodyText)
+        page.url().includes('/page-not-found') ||
+        /please try again in one hour|unable to progress with your request|session has expired or become invalid|session expired or invalid/i.test(combinedText)
       ) {
-        if (/otp|one-time password/i.test(bodyText)) {
+        return {
+          detected: true,
+          actionType: HumanActionType.MANUAL_VERIFICATION,
+          details: 'VFS IP rate limit or session block detected: "Please try again in one hour on a single device, after closing other browser windows".',
+        };
+      }
+
+      if (
+        /please verify you are human|turnstile|verify your identity with otp|one-time password/i.test(combinedText)
+      ) {
+        if (/otp|one-time password/i.test(combinedText)) {
           return {
             detected: true,
             actionType: HumanActionType.OTP,

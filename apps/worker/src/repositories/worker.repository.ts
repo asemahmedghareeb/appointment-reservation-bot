@@ -203,4 +203,24 @@ export class WorkerRepository {
       },
     });
   }
+
+  async recordActivityLog(data: {
+    bookingCaseId: string;
+    actorType: string;
+    actorId?: string | null | undefined;
+    eventType: string;
+    message: string;
+    metadata?: Record<string, unknown> | null | undefined;
+  }) {
+    return prisma.activityLog.create({
+      data: {
+        bookingCaseId: data.bookingCaseId,
+        actorType: data.actorType as any,
+        actorId: data.actorId ?? null,
+        eventType: data.eventType,
+        message: data.message,
+        metadata: (data.metadata as any) ?? undefined,
+      },
+    });
+  }
 }
