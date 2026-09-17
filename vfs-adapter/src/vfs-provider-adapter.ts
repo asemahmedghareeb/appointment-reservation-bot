@@ -16,6 +16,7 @@ import {
 } from '@visaflow/provider-core';
 import { BookingCaseStatus } from '@visaflow/shared-types';
 import type { VfsBrowserSessionManager } from './runtime/vfs-browser-session-manager.js';
+import type { VfsBrowserSession } from './runtime/vfs-browser-session.js';
 import type { VfsCredentialsProvider } from './credentials/vfs-credentials-provider.js';
 import type { VfsAdapterConfig } from './config/vfs-adapter-config.js';
 import { parseVfsRouteProfile } from './config/vfs-route-profile.parser.js';
@@ -47,26 +48,102 @@ export class VfsProviderAdapter implements VisaProviderAdapter {
     private readonly config: VfsAdapterConfig,
   ) {}
 
+  async isSessionAuthenticated(caseId: string): Promise<boolean> {
+    const session = this.sessionManager.getSession(caseId);
+    if (!session || session.page.isClosed()) {
+      return false;
+    }
+
+    try {
+      const url = session.page.url();
+      if (!url || url === 'about:blank') return false;
+
+      // Cannot be on login or error pages
+      if (url.includes('/login') || url.includes('page-not-found') || url.includes('session-expired')) {
+        return false;
+      }
+
+      // 1. URL-based detection: /dashboard or /application-detail
+      const isDashboardUrl = url.includes('/dashboard') || url.includes('/application-detail');
+
+      // 2. DOM-based detection: presence of Start New Booking, Logout, or account elements
+      const isDashboardDom = await session.page.locator(
+        'button:has-text("Start New Booking"), a:has-text("Start New Booking"), button:has-text("حجز موعد جديد"), a:has-text("حجز موعد جديد"), button:has-text("Book now"), a:has-text("Book now"), a:has-text("Sign out"), button:has-text("Sign out"), a:has-text("Logout"), button:has-text("Logout")'
+      ).first().isVisible().catch(() => false);
+
+      return isDashboardUrl || isDashboardDom;
+    } catch {
+      return false;
+    }
+  }
+
+  async prepareLoginSession(context: ProviderContext): Promise<VfsBrowserSession> {
+    logSafeBrowserEvent('Adapter: prepareLoginSession starting', { caseId: context.caseId });
+
+    let routeProfile;
+    try {
+      routeProfile = parseVfsRouteProfile(context.providerRoute.configuration, {
+        sourceCountry: context.providerRoute.sourceCountry,
+        destinationCountry: context.providerRoute.destinationCountry,
+      });
+    } catch (err: any) {
+      throw new Error(`Failed to parse VFS route profile: ${err.message}`);
+    }
+
+    if (!routeProfile.entryUrl || !isOriginAllowed(routeProfile.entryUrl, this.config.allowedOrigins)) {
+      throw new Error(`Route entry URL origin is not allowed: ${routeProfile.entryUrl}`);
+    }
+
+    const authUrl = routeProfile.entryUrl.includes('/application-detail')
+      ? routeProfile.entryUrl.replace('/application-detail', '/login')
+      : routeProfile.entryUrl;
+
+    const session = await this.sessionManager.getOrCreateSession(context.caseId);
+
+    // Warm up landing page if distinct from authUrl
+    const landingUrl = authUrl.replace(/\/login.*$/, '');
+    if (landingUrl !== authUrl && !authUrl.includes('127.0.0.1')) {
+      logSafeBrowserEvent('Warming up session via landing page', { caseId: context.caseId, landingUrl });
+      await session.navigate(landingUrl).catch(() => {});
+      await session.page.waitForTimeout(2000);
+    }
+
+    logSafeBrowserEvent('Navigating to VFS login entry URL for manual operator login', {
+      caseId: context.caseId,
+      authUrl,
+    });
+    await session.navigate(authUrl);
+
+    // Dismiss cookie banner if it appears
+    try {
+      const cookieBtn = session.page.locator(
+        '#onetrust-accept-btn-handler, button:has-text("Accept All Cookies"), button:has-text("Accept All")'
+      ).first();
+      if (await cookieBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+        await cookieBtn.click({ force: true }).catch(() => {});
+      }
+    } catch {}
+
+    return session;
+  }
+
   async authenticate(context: ProviderContext): Promise<AuthenticateResult> {
     logSafeBrowserEvent('Adapter: authenticate starting', { caseId: context.caseId });
 
-    if (!context.providerAccountId) {
-      return {
-        kind: 'PERMANENT_FAILURE',
-        code: 'VFS_ACCOUNT_MISSING',
-        safeMessage: 'No provider account assigned to booking case for VFS authentication.',
-      };
-    }
-
-    let credentials;
-    try {
-      credentials = await this.credentialsProvider.getCredentials(context.providerAccountId);
-    } catch (err: any) {
-      return {
-        kind: 'PERMANENT_FAILURE',
-        code: 'VFS_CREDENTIALS_LOAD_FAILED',
-        safeMessage: 'Failed to load provider credentials.',
-      };
+    // 1. Verify if an existing session is already authenticated via manual login
+    const existingSession = this.sessionManager.getSession(context.caseId);
+    if (existingSession) {
+      const isAuth = await this.isSessionAuthenticated(context.caseId);
+      if (isAuth) {
+        logSafeBrowserEvent('Existing session is already authenticated via manual login!', { caseId: context.caseId });
+        return {
+          kind: 'SUCCESS',
+          data: {
+            authenticatedAt: new Date().toISOString(),
+            sessionId: existingSession.caseId,
+          },
+        };
+      }
     }
 
     let routeProfile;
@@ -91,94 +168,68 @@ export class VfsProviderAdapter implements VisaProviderAdapter {
       };
     }
 
-    let savedStorageState: string | undefined = undefined;
-    try {
-      const candidates = [
-        path.resolve(process.cwd(), '.vfs-session.json'),
-        path.resolve(process.cwd(), '..', '.vfs-session.json'),
-        path.resolve(process.cwd(), '..', '..', '.vfs-session.json'),
-      ];
-      for (const p of candidates) {
-        if (fs.existsSync(p)) {
-          savedStorageState = fs.readFileSync(p, 'utf-8');
-          logSafeBrowserEvent('Loaded saved VFS session from file', { caseId: context.caseId, path: p });
-          break;
-        }
+    const isTestServer = routeProfile.entryUrl.includes('127.0.0.1') || routeProfile.entryUrl.includes('localhost');
+
+    // 2. In live automation: strictly enforce manual login boundary (never auto-type credentials)
+    if (!isTestServer) {
+      let session = existingSession;
+      if (!session) {
+        session = await this.prepareLoginSession(context);
       }
-    } catch {}
 
-    const session = await this.sessionManager.getOrCreateSession(context.caseId, savedStorageState);
-
-    if (savedStorageState) {
-      try {
-        const parsed = JSON.parse(savedStorageState);
-        if (parsed.sessionStorage) {
-          await session.page.addInitScript((ss) => {
-            if (ss) {
-              for (const [k, v] of Object.entries(ss)) {
-                try {
-                  sessionStorage.setItem(k, v as string);
-                } catch {}
-              }
-            }
-          }, parsed.sessionStorage);
-        }
-      } catch {}
+      return {
+        kind: 'HUMAN_ACTION_REQUIRED',
+        action: HumanActionType.MANUAL_VERIFICATION,
+        resumeToStatus: BookingCaseStatus.AUTHENTICATING,
+        safeMessage: 'تسجيل الدخول مطلوب. يرجى تسجيل الدخول إلى حساب VFS أولاً قبل تشغيل البوت.',
+        checkpoint: {
+          pageType: VfsPageType.LOGIN,
+          currentPath: session ? session.getSafeCurrentPath() : '/login',
+        },
+      };
     }
 
+    // 3. Synthetic test server compatibility fallback
+    if (!context.providerAccountId) {
+      return {
+        kind: 'PERMANENT_FAILURE',
+        code: 'VFS_ACCOUNT_MISSING',
+        safeMessage: 'No provider account assigned to booking case for VFS authentication.',
+      };
+    }
+
+    let credentials;
     try {
-      const authUrl = routeProfile.entryUrl.includes('/application-detail')
-        ? routeProfile.entryUrl.replace('/application-detail', '/login')
-        : routeProfile.entryUrl;
+      credentials = await this.credentialsProvider.getCredentials(context.providerAccountId);
+    } catch (err: any) {
+      return {
+        kind: 'PERMANENT_FAILURE',
+        code: 'VFS_CREDENTIAL_LOAD_FAILED',
+        safeMessage: 'Failed to load provider credentials.',
+      };
+    }
 
-      // 1. Warm up session by visiting destination country landing page first
-      // This initializes VFS Angular state and session cookies so /login or /dashboard doesn't bounce to Session Expired
-      const landingUrl = authUrl.replace(/\/login.*$/, '');
-      if (landingUrl !== authUrl) {
-        logSafeBrowserEvent('Warming up session via landing page', { caseId: context.caseId, landingUrl });
-        await session.navigate(landingUrl).catch(() => {});
-        await session.page.waitForTimeout(3000);
-      }
-
-      // 2. Navigate naturally to authUrl (the official entry/login endpoint)
-      logSafeBrowserEvent('Navigating to auth entry URL', { caseId: context.caseId, authUrl });
-      await session.navigate(authUrl);
-      await session.page.waitForTimeout(4000);
-
-      // 3. If we have a saved session, check if Angular automatically navigated to dashboard
-      if (savedStorageState) {
-        const isRealDashboard = !session.page.url().includes('page-not-found') &&
-          (session.page.url().includes('/dashboard') || session.page.url().includes('/application-detail')) &&
-          await session.page.locator('button:has-text("Start New Booking"), a:has-text("Start New Booking")').isVisible().catch(() => false);
-
-        if (isRealDashboard) {
-          logSafeBrowserEvent('Bypassed login entirely using active saved session!', { caseId: context.caseId });
-          return {
-            kind: 'SUCCESS',
-            data: {
-              authenticatedAt: new Date().toISOString(),
-              sessionId: session.caseId,
-            },
-          };
-        }
-
-        logSafeBrowserEvent('Saved session did not auto-enter dashboard, proceeding with standard login form fill', {
-          caseId: context.caseId,
-          currentUrl: session.page.url(),
-        });
-      }
+    const session = await this.sessionManager.getOrCreateSession(context.caseId);
+    try {
+      const authUrl = routeProfile.entryUrl;
       await session.navigate(authUrl);
 
-      // 3. Delegate cookie acceptance, session recovery and credentials fill to LoginPage
+      const preChallenge = await this.humanDetector.detect(session.page);
+      if (preChallenge.detected) {
+        return {
+          kind: 'HUMAN_ACTION_REQUIRED',
+          action: preChallenge.actionType ?? HumanActionType.CAPTCHA,
+          resumeToStatus: BookingCaseStatus.AUTHENTICATING,
+          safeMessage: 'Verification required before credentials submission.',
+          checkpoint: {
+            pageType: VfsPageType.HUMAN_VERIFICATION,
+            currentPath: session.getSafeCurrentPath(),
+          },
+        };
+      }
+
       const loginPage = new LoginPage(session.page);
       await loginPage.login(credentials);
-
-      // Persist updated session
-      try {
-        const freshState = await session.context.storageState();
-        fs.writeFileSync(path.resolve(process.cwd(), '.vfs-session.json'), JSON.stringify(freshState, null, 2), 'utf-8');
-        logSafeBrowserEvent('Saved fresh VFS session to file', { caseId: context.caseId });
-      } catch {}
 
       // Check post-login human challenge
       const postChallenge = await this.humanDetector.detect(session.page);
@@ -203,12 +254,6 @@ export class VfsProviderAdapter implements VisaProviderAdapter {
         },
       };
     } catch (err: any) {
-      logSafeBrowserEvent('Authentication error - FULL DETAILS', { 
-        caseId: context.caseId, 
-        message: err?.message, 
-        stack: err?.stack?.split('\n').slice(0, 5).join(' | '),
-        errorType: err?.constructor?.name,
-      });
       try {
         const challengeOnErr = await this.humanDetector.detect(session.page);
         if (challengeOnErr.detected) {

@@ -61,6 +61,31 @@ export class OrchestrationQueueService implements OnModuleDestroy {
     return { jobId: job.id || jobId, queueName: queue.name };
   }
 
+  async enqueuePrepareLogin(
+    params: EnqueueParams<AvailabilityCheckJobPayload>,
+  ): Promise<{ jobId: string; queueName: string }> {
+    const queue = this.factory.getAvailabilityQueue();
+    const jobId = deriveDeterministicJobId(params.idempotencyKey);
+
+    const envelope: OrchestratorJobEnvelope<AvailabilityCheckJobPayload> = {
+      version: 1,
+      jobType: OrchestratorJobType.PREPARE_LOGIN,
+      caseId: params.caseId,
+      correlationId: params.correlationId,
+      cycleId: params.cycleId,
+      idempotencyKey: params.idempotencyKey,
+      expectedStatuses: [BookingCaseStatus.READY, BookingCaseStatus.AUTHENTICATING],
+      createdAt: new Date().toISOString(),
+      payload: params.payload,
+    };
+
+    const job = await queue.add(OrchestratorJobType.PREPARE_LOGIN, envelope, {
+      jobId,
+    });
+
+    return { jobId: job.id || jobId, queueName: queue.name };
+  }
+
   async enqueueBookingExecution(
     params: EnqueueParams<BookingExecutionJobPayload>,
   ): Promise<{ jobId: string; queueName: string }> {

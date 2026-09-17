@@ -4,7 +4,7 @@ import {
   BookingCaseStatus,
   StateActorType,
 } from '@visaflow/database';
-import type { OrchestratorJobEnvelope } from '@visaflow/shared-types';
+import { OrchestratorJobType, type OrchestratorJobEnvelope } from '@visaflow/shared-types';
 import type { WorkerConfig } from '../config/worker.config.js';
 import { getRedisOptions } from '../config/worker.config.js';
 import type { WorkerRepository } from '../repositories/worker.repository.js';
@@ -67,6 +67,10 @@ export class AvailabilityWorker {
     const envelope = job.data;
     const caseId = envelope.caseId;
 
+    if (envelope.jobType === OrchestratorJobType.PREPARE_LOGIN) {
+      return this.processPrepareLogin(envelope);
+    }
+
     const bookingCase = await this.repo.findCaseById(caseId);
     if (!bookingCase) {
       return { outcome: 'CASE_NOT_FOUND' };
@@ -99,12 +103,15 @@ export class AvailabilityWorker {
           reason: 'Worker beginning provider authentication',
         });
 
-        // Create automation session
-        await this.sessionService.createSession({
-          bookingCaseId: caseId,
-          providerAccountId: context.providerAccountId,
-          providerCode: context.providerRoute.providerCode,
-        });
+        // Create automation session only if not already active
+        const existingSession = await this.repo.findActiveSessionByCaseId(caseId);
+        if (!existingSession) {
+          await this.sessionService.createSession({
+            bookingCaseId: caseId,
+            providerAccountId: context.providerAccountId,
+            providerCode: context.providerRoute.providerCode,
+          });
+        }
       }
 
 
@@ -279,6 +286,86 @@ export class AvailabilityWorker {
     }
 
     return { outcome: 'AVAILABILITY_ERROR' };
+  }
+
+  private async processPrepareLogin(envelope: OrchestratorJobEnvelope): Promise<{ outcome: string }> {
+    const caseId = envelope.caseId;
+    const bookingCase = await this.repo.findCaseById(caseId);
+    if (!bookingCase) {
+      return { outcome: 'CASE_NOT_FOUND' };
+    }
+
+    const { context } = await this.contextLoader.loadContextAndApplicants(caseId, envelope.correlationId);
+    const adapter = this.adapterRegistry.resolve(context.providerRoute.providerCode);
+
+    // Call adapter to launch session and navigate to VFS login URL
+    const session = await (adapter as any).prepareLoginSession(context);
+
+    // Record activity log
+    await this.repo.recordActivityLog({
+      bookingCaseId: caseId,
+      actorType: StateActorType.WORKER,
+      actorId: this.config.workerId,
+      eventType: 'LOGIN_SESSION_PREPARED',
+      message: 'تم فتح جلسة VFS بنجاح، بانتظار تسجيل الدخول اليدوي من المشغل',
+    });
+
+    // Start passive observation on the session page to auto-detect successful login
+    this.startAuthObserver(caseId, session, adapter);
+
+    return { outcome: 'LOGIN_SESSION_PREPARED' };
+  }
+
+  private startAuthObserver(caseId: string, session: any, adapter: any): void {
+    if (!session || !session.page || session.page.isClosed()) return;
+
+    let stopped = false;
+    const interval = setInterval(async () => {
+      if (stopped || !session.page || session.page.isClosed()) {
+        clearInterval(interval);
+        return;
+      }
+
+      try {
+        const isAuth = await adapter.isSessionAuthenticated(caseId);
+        if (isAuth) {
+          stopped = true;
+          clearInterval(interval);
+
+          const activeSession = await this.repo.findActiveSessionByCaseId(caseId);
+          if (activeSession) {
+            await this.repo.updateAutomationSession(activeSession.id, {
+              status: 'ACTIVE',
+              checkpointJson: {
+                step: 'READY_FOR_AUTOMATION',
+                authenticated: true,
+                detectedAt: new Date().toISOString(),
+              },
+              humanActionType: null,
+              lastHeartbeatAt: new Date(),
+            });
+
+            await this.repo.recordActivityLog({
+              bookingCaseId: caseId,
+              actorType: StateActorType.WORKER,
+              actorId: this.config.workerId,
+              eventType: 'LOGIN_SUCCESS_DETECTED',
+              message: 'تم تسجيل الدخول بنجاح إلى VFS، الجلسة جاهزة لتشغيل البوت',
+            });
+          }
+        }
+      } catch {
+        // Ignore check errors
+      }
+    }, 2500);
+
+    // Auto cleanup observer after 25 minutes
+    setTimeout(() => {
+      if (!stopped) {
+        stopped = true;
+        clearInterval(interval);
+      }
+    }, 25 * 60 * 1000);
   }
 
   async close(): Promise<void> {

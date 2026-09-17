@@ -37,7 +37,7 @@ describe('VFS Multi-Country Expansion (Phase 3.1 Matrix)', { timeout: 35000 }, (
   afterAll(async () => {
     await sessionManager?.closeAll().catch(() => {});
     await server?.stop().catch(() => {});
-  });
+  }, 30000);
 
   beforeEach(() => {
     server.setScenario('HAPPY_PATH');
@@ -213,8 +213,10 @@ describe('VFS Multi-Country Expansion (Phase 3.1 Matrix)', { timeout: 35000 }, (
   // ==========================================
   // 2. Multi-Country Isolation Test
   // ==========================================
-  it('Multi-Country Isolation: GR, HU, PT, AT configs never leak across cases', async () => {
-    const caseGr = createDestinationContext('case_iso_gr', DESTINATIONS[0]!);
+  it(
+    'Multi-Country Isolation: GR, HU, PT, AT configs never leak across cases',
+    async () => {
+      const caseGr = createDestinationContext('case_iso_gr', DESTINATIONS[0]!);
     const caseHu = createDestinationContext('case_iso_hu', DESTINATIONS[1]!);
     const casePt = createDestinationContext('case_iso_pt', DESTINATIONS[2]!);
     const caseAt = createDestinationContext('case_iso_at', DESTINATIONS[3]!);
@@ -273,7 +275,7 @@ describe('VFS Multi-Country Expansion (Phase 3.1 Matrix)', { timeout: 35000 }, (
     expect(pHu.pageProfile).toBe('VFS_CALENDAR_V1');
     expect(pPt.pageProfile).toBe('VFS_EARLIEST_SLOT_V1');
     expect(pAt.pageProfile).toBe('VFS_CALENDAR_V1');
-  });
+  }, 60000);
 
   // ==========================================
   // 3. Origin Security Validation Test

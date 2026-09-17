@@ -132,6 +132,7 @@ export class OperationsService {
               : null,
             currentPath: latestSession.currentPath,
             expiresAt: latestSession.expiresAt?.toISOString() ?? null,
+            checkpointJson: (latestSession.checkpointJson as Record<string, any>) ?? null,
           }
         : null,
       appointment: null,

@@ -241,7 +241,17 @@
     "liveMonitorVisualStatus": "المراقبة الحية",
     "liveMonitorProviderBrowser": "متصفح مزود الخدمة",
     "liveMonitorReconnect": "إعادة الاتصال بالشاشة",
-    "liveMonitorNoStreamDesc": "لا توجد جلسة متصفح نشطة حاليًا لهذا الطلب. سيتم عرض البث تلقائيًا فور بدء تشغيل الأتمتة."
+    "liveMonitorNoStreamDesc": "لا توجد جلسة متصفح نشطة حاليًا لهذا الطلب. سيتم عرض البث تلقائيًا فور بدء تشغيل الأتمتة.",
+    "openVfsSession": "فتح جلسة VFS",
+    "openingVfsSession": "جاري فتح جلسة VFS...",
+    "vfsLoginRequiredTitle": "تسجيل الدخول مطلوب",
+    "vfsLoginRequiredDesc": "قم بتسجيل الدخول إلى حساب VFS أولاً قبل تشغيل الأتمتة.",
+    "vfsLoginSuccessTitle": "تم تسجيل الدخول بنجاح",
+    "vfsLoginSuccessDesc": "الجلسة جاهزة لتشغيل البوت",
+    "startBot": "تشغيل البوت",
+    "botRunningNow": "البوت يعمل الآن",
+    "openPaymentPage": "فتح صفحة الدفع",
+    "paymentReachedDesc": "تم الوصول إلى صفحة الدفع بنجاح. أكمل عملية الدفع يدويًا."
   },
   "clients": {
     "title": "العملاء",

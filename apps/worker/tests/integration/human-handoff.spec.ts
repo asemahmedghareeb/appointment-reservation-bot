@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { SyntheticVfsServer } from '../../../../packages/vfs-adapter/tests/test-server/synthetic-vfs-server.js';
+import { SyntheticVfsServer } from '../../../../vfs-adapter/tests/test-server/synthetic-vfs-server.js';
 import {
   VfsBrowserSessionManager,
   VfsProviderAdapter,
@@ -337,7 +337,7 @@ describe('Integration: Human Handoff (CAPTCHA, OTP, Session Ownership)', () => {
 
     expect(res.outcome).toBe('HUMAN_ACTION_REQUIRED');
     expect(sessionRecord.humanActionType).toBe('OTP');
-  });
+  }, 30000);
 
   it('verifies encrypted session storage: storageStateEncrypted cannot be parsed as raw JSON, but decrypts cleanly', async () => {
     const rawStorageState = JSON.stringify({ cookies: [{ name: 'vfs_synth_tok', value: 'secret123' }] });

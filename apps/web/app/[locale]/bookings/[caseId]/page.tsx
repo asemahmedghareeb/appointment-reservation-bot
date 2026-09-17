@@ -30,6 +30,7 @@ import {
   Activity,
   ArrowLeft,
   Trash2,
+  Globe,
 } from 'lucide-react';
 
 export default function LocalizedCaseDetailPage() {
@@ -65,7 +66,28 @@ export default function LocalizedCaseDetailPage() {
     refetchInterval: 5000,
   });
 
+  const { data: authStatus } = useQuery({
+    queryKey: ['auth-status', caseId],
+    queryFn: () => api.orchestrator.getAuthStatus(caseId),
+    enabled: !!caseId,
+    refetchInterval: 3000,
+  });
+
   // Mutations
+  const prepareLoginMutation = useMutation({
+    mutationFn: () => {
+      setActionError(null);
+      return api.orchestrator.prepareLogin(caseId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['case-detail', caseId] });
+      queryClient.invalidateQueries({ queryKey: ['case-timeline', caseId] });
+      queryClient.invalidateQueries({ queryKey: ['auth-status', caseId] });
+      setActionError(null);
+    },
+    onError: (err: any) => setActionError(err.message),
+  });
+
   const markReadyMutation = useMutation({
     mutationFn: () => api.bookingCases.markReady(caseId),
     onSuccess: () => {
@@ -165,6 +187,23 @@ export default function LocalizedCaseDetailPage() {
   const isPaymentRequired = caseDetail.status === BookingCaseStatus.PAYMENT_REQUIRED;
   const isConfirmed = caseDetail.status === BookingCaseStatus.CONFIRMED;
 
+  const isMonitoringOrBooking = [
+    BookingCaseStatus.AUTHENTICATING,
+    BookingCaseStatus.MONITORING,
+    BookingCaseStatus.WAITING_QUEUE,
+    BookingCaseStatus.SLOT_FOUND,
+    BookingCaseStatus.BOOKING,
+    BookingCaseStatus.ADDING_APPLICANTS,
+    BookingCaseStatus.APPOINTMENT_SELECTED,
+    BookingCaseStatus.PAYMENT_PROCESSING,
+  ].includes(caseDetail.status);
+
+  const hasPreparedSession = Boolean(caseDetail.automationSession || authStatus?.sessionActive);
+  const isSessionAuthenticated = Boolean(
+    authStatus?.authenticated || caseDetail.automationSession?.checkpointJson?.authenticated
+  );
+  const isBotRunning = isMonitoringOrBooking;
+
   return (
     <AppShell>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -249,15 +288,38 @@ export default function LocalizedCaseDetailPage() {
               </button>
             )}
 
-            {isReady && (
+            {isReady && !hasPreparedSession && (
+              <button
+                id="btn-case-action-prepare-login"
+                onClick={() => prepareLoginMutation.mutate()}
+                disabled={prepareLoginMutation.isPending}
+                className="btn-primary"
+              >
+                <Globe size={16} />
+                <span>{prepareLoginMutation.isPending ? t('openingVfsSession') : t('openVfsSession')}</span>
+              </button>
+            )}
+
+            {isReady && hasPreparedSession && (
               <button
                 id="btn-case-action-start"
                 onClick={() => startAutomationMutation.mutate()}
-                disabled={startAutomationMutation.isPending}
-                className="btn-success"
+                disabled={!isSessionAuthenticated || startAutomationMutation.isPending}
+                className={isSessionAuthenticated ? 'btn-success' : 'btn-secondary'}
+                title={
+                  !isSessionAuthenticated
+                    ? locale === 'ar'
+                      ? 'قم بتسجيل الدخول إلى حساب VFS أولاً'
+                      : 'Please sign in to the VFS account first'
+                    : undefined
+                }
+                style={{
+                  opacity: !isSessionAuthenticated ? 0.6 : 1,
+                  cursor: !isSessionAuthenticated ? 'not-allowed' : 'pointer',
+                }}
               >
                 <Play size={16} className="icon-directional" />
-                <span>{startAutomationMutation.isPending ? t('starting') : t('startAutomation')}</span>
+                <span>{startAutomationMutation.isPending ? t('starting') : t('startBot')}</span>
               </button>
             )}
 
@@ -323,6 +385,188 @@ export default function LocalizedCaseDetailPage() {
             >
               ✕
             </button>
+          </div>
+        )}
+
+        {/* Step 1: Open VFS session banner */}
+        {isReady && !hasPreparedSession && (
+          <div
+            id="vfs-login-prepare-card"
+            className="glass-card"
+            style={{
+              padding: '20px 24px',
+              backgroundColor: 'rgba(59, 130, 246, 0.08)',
+              border: '1px solid rgba(59, 130, 246, 0.3)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '16px',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div
+                style={{
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '10px',
+                  backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#60a5fa',
+                }}
+              >
+                <Globe size={22} />
+              </div>
+              <div>
+                <h3 style={{ fontSize: '1.05rem', fontWeight: 600, color: '#93c5fd', margin: 0 }}>
+                  {locale === 'ar' ? 'تسجيل الدخول إلى VFS' : 'Sign in to VFS'}
+                </h3>
+                <span style={{ fontSize: '0.85rem', color: '#bfdbfe' }}>
+                  {t('vfsLoginRequiredDesc')}
+                </span>
+              </div>
+            </div>
+            <button
+              id="btn-prepare-vfs-session"
+              onClick={() => prepareLoginMutation.mutate()}
+              disabled={prepareLoginMutation.isPending}
+              className="btn-primary"
+            >
+              <ExternalLink size={16} />
+              <span>{prepareLoginMutation.isPending ? t('openingVfsSession') : t('openVfsSession')}</span>
+            </button>
+          </div>
+        )}
+
+        {/* Step 2: Waiting for manual login */}
+        {isReady && hasPreparedSession && !isSessionAuthenticated && (
+          <div
+            id="vfs-login-required-card"
+            className="glass-card"
+            style={{
+              padding: '20px 24px',
+              backgroundColor: 'rgba(234, 179, 8, 0.08)',
+              border: '1px solid rgba(234, 179, 8, 0.4)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '16px',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div
+                style={{
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '10px',
+                  backgroundColor: 'rgba(234, 179, 8, 0.2)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#facc15',
+                }}
+              >
+                <AlertTriangle size={22} />
+              </div>
+              <div>
+                <h3 style={{ fontSize: '1.05rem', fontWeight: 600, color: '#fde047', margin: 0 }}>
+                  {t('vfsLoginRequiredTitle')}
+                </h3>
+                <span style={{ fontSize: '0.85rem', color: '#fef08a' }}>
+                  {t('vfsLoginRequiredDesc')}
+                </span>
+              </div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#fde047', fontSize: '0.85rem' }}>
+              <RefreshCw size={15} className="spin-animation" />
+              <span>{locale === 'ar' ? 'بانتظار تسجيل الدخول في المتصفح...' : 'Waiting for login in browser...'}</span>
+            </div>
+          </div>
+        )}
+
+        {/* Step 3: Login confirmed & Ready for bot start */}
+        {isReady && hasPreparedSession && isSessionAuthenticated && (
+          <div
+            id="vfs-login-ready-card"
+            className="glass-card"
+            style={{
+              padding: '20px 24px',
+              backgroundColor: 'rgba(16, 185, 129, 0.08)',
+              border: '1px solid rgba(16, 185, 129, 0.4)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '16px',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div
+                style={{
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '10px',
+                  backgroundColor: 'rgba(16, 185, 129, 0.2)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#10b981',
+                }}
+              >
+                <CheckCircle2 size={22} />
+              </div>
+              <div>
+                <h3 style={{ fontSize: '1.05rem', fontWeight: 600, color: '#6ee7b7', margin: 0 }}>
+                  ✓ {t('vfsLoginSuccessTitle')}
+                </h3>
+                <span style={{ fontSize: '0.85rem', color: '#a7f3d0' }}>
+                  {t('vfsLoginSuccessDesc')}
+                </span>
+              </div>
+            </div>
+            <button
+              id="btn-start-bot-banner"
+              onClick={() => startAutomationMutation.mutate()}
+              disabled={startAutomationMutation.isPending}
+              className="btn-success"
+              style={{ padding: '10px 22px', fontSize: '0.95rem' }}
+            >
+              <Play size={16} className="icon-directional" />
+              <span>{startAutomationMutation.isPending ? t('starting') : t('startBot')}</span>
+            </button>
+          </div>
+        )}
+
+        {/* Step 4: Bot Running Now Banner */}
+        {isBotRunning && (
+          <div
+            id="bot-running-banner"
+            className="glass-card"
+            style={{
+              padding: '14px 20px',
+              backgroundColor: 'rgba(59, 130, 246, 0.08)',
+              border: '1px solid rgba(59, 130, 246, 0.3)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+            }}
+          >
+            <span
+              style={{
+                width: '10px',
+                height: '10px',
+                borderRadius: '50%',
+                backgroundColor: '#22c55e',
+                boxShadow: '0 0 10px #22c55e',
+                display: 'inline-block',
+              }}
+            />
+            <span style={{ fontSize: '0.95rem', fontWeight: 600, color: '#93c5fd' }}>
+              ● {t('botRunningNow')}
+            </span>
           </div>
         )}
 
@@ -515,15 +759,15 @@ export default function LocalizedCaseDetailPage() {
               border: '1px solid rgba(245, 158, 11, 0.4)',
               display: 'flex',
               flexDirection: 'column',
-              gap: '16px',
+              gap: '20px',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <div
                 style={{
-                  width: '36px',
-                  height: '36px',
-                  borderRadius: '8px',
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '10px',
                   backgroundColor: 'rgba(245, 158, 11, 0.2)',
                   display: 'flex',
                   alignItems: 'center',
@@ -531,25 +775,61 @@ export default function LocalizedCaseDetailPage() {
                   color: '#f59e0b',
                 }}
               >
-                <CreditCard size={20} />
+                <CreditCard size={22} />
               </div>
               <div>
-                <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#fde68a', margin: 0 }}>
-                  {t('paymentRequiredTitle')}
+                <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: '#fde68a', margin: 0 }}>
+                  💳 {locale === 'ar' ? 'الدفع مطلوب' : 'Payment Required'}
                 </h3>
-                <span style={{ fontSize: '0.85rem', color: '#fef3c7' }}>
-                  {t('paymentRequiredDesc')}
+                <span style={{ fontSize: '0.9rem', color: '#fef3c7', marginTop: '2px', display: 'block' }}>
+                  {t('paymentReachedDesc')}
                 </span>
               </div>
             </div>
 
-            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '20px' }}>
+            {/* Display when safely available: Provider, Case Number, Applicants, Amount, Currency, Payment deadline */}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+                gap: '16px',
+                paddingTop: '12px',
+                borderTop: '1px solid rgba(245, 158, 11, 0.2)',
+              }}
+            >
+              <div>
+                <span style={{ fontSize: '0.75rem', color: '#94a3b8', textTransform: 'uppercase' }}>
+                  {locale === 'ar' ? 'مزود الخدمة' : 'Provider'}
+                </span>
+                <div style={{ fontSize: '1rem', fontWeight: 600, color: '#f8fafc', marginTop: '2px' }}>
+                  {caseDetail.provider.code}
+                </div>
+              </div>
+
+              <div>
+                <span style={{ fontSize: '0.75rem', color: '#94a3b8', textTransform: 'uppercase' }}>
+                  {locale === 'ar' ? 'رقم الحجز' : 'Case Number'}
+                </span>
+                <div style={{ fontSize: '1rem', fontWeight: 600, color: '#f8fafc', marginTop: '2px' }}>
+                  <TechnicalText>{caseDetail.caseNumber}</TechnicalText>
+                </div>
+              </div>
+
+              <div>
+                <span style={{ fontSize: '0.75rem', color: '#94a3b8', textTransform: 'uppercase' }}>
+                  {t('applicantsTitle')}
+                </span>
+                <div style={{ fontSize: '1rem', fontWeight: 600, color: '#f8fafc', marginTop: '2px' }}>
+                  {caseDetail.applicants.length}
+                </div>
+              </div>
+
               {caseDetail.paymentHandoff?.amount && (
                 <div>
                   <span style={{ fontSize: '0.75rem', color: '#94a3b8', textTransform: 'uppercase' }}>
                     {t('amountDue')}
                   </span>
-                  <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#f8fafc' }}>
+                  <div style={{ fontSize: '1.15rem', fontWeight: 700, color: '#f8fafc', marginTop: '2px' }}>
                     {formatCurrency(
                       caseDetail.paymentHandoff.amount,
                       caseDetail.paymentHandoff.currency || 'USD',
@@ -559,32 +839,38 @@ export default function LocalizedCaseDetailPage() {
                 </div>
               )}
 
-              {caseDetail.paymentHandoff?.safePaymentPath && (
+              {caseDetail.paymentHandoff?.deadlineAt && (
                 <div>
                   <span style={{ fontSize: '0.75rem', color: '#94a3b8', textTransform: 'uppercase' }}>
-                    {t('gatewayLink')}
+                    {locale === 'ar' ? 'مهلة الدفع' : 'Payment Deadline'}
                   </span>
-                  <div>
-                    <a
-                      href={caseDetail.paymentHandoff.safePaymentPath}
-                      target="_blank"
-                      rel="noreferrer"
-                      id="link-payment-gateway"
-                      dir="ltr"
-                      style={{
-                        color: '#60a5fa',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '4px',
-                        fontSize: '0.875rem',
-                        textDecoration: 'underline',
-                      }}
-                    >
-                      <span>{t('openPaymentLink')}</span>
-                      <ExternalLink size={14} />
-                    </a>
+                  <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#f8fafc', marginTop: '2px' }}>
+                    {formatDateTime(caseDetail.paymentHandoff.deadlineAt, locale)}
                   </div>
                 </div>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '14px', paddingTop: '4px' }}>
+              {caseDetail.paymentHandoff?.safePaymentPath && (
+                <a
+                  href={caseDetail.paymentHandoff.safePaymentPath}
+                  target="_blank"
+                  rel="noreferrer"
+                  id="link-open-payment-page"
+                  className="btn-primary"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '10px 18px',
+                    textDecoration: 'none',
+                    fontWeight: 600,
+                  }}
+                >
+                  <ExternalLink size={16} />
+                  <span>{t('openPaymentPage')}</span>
+                </a>
               )}
 
               <button
@@ -596,7 +882,7 @@ export default function LocalizedCaseDetailPage() {
                 }
                 disabled={resumeMutation.isPending}
                 className="btn-success"
-                style={{ marginInlineStart: 'auto' }}
+                style={{ marginInlineStart: 'auto', padding: '10px 18px' }}
               >
                 <CheckCircle2 size={16} />
                 <span>{t('confirmPaymentComplete')}</span>

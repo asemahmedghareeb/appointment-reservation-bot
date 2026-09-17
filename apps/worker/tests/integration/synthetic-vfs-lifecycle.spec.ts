@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { SyntheticVfsServer } from '../../../../packages/vfs-adapter/tests/test-server/synthetic-vfs-server.js';
+import { SyntheticVfsServer } from '../../../../vfs-adapter/tests/test-server/synthetic-vfs-server.js';
 import {
   VfsBrowserSessionManager,
   VfsProviderAdapter,

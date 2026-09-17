@@ -47,4 +47,15 @@ export class AutomationOperationsController {
   async getSession(@Param('caseId') caseId: string) {
     return this.automationService.getSession(caseId);
   }
+
+  @Post(':caseId/prepare-login')
+  @HttpCode(HttpStatus.ACCEPTED)
+  async prepareLogin(@Param('caseId') caseId: string) {
+    return this.automationService.prepareLoginSession(caseId);
+  }
+
+  @Get(':caseId/auth-status')
+  async getAuthStatus(@Param('caseId') caseId: string) {
+    return this.automationService.getAuthStatus(caseId);
+  }
 }

@@ -133,6 +133,7 @@ export interface OperationsCaseDetail {
     resumeToStatus?: BookingCaseStatus | null | undefined;
     currentPath?: string | null | undefined;
     expiresAt?: string | null | undefined;
+    checkpointJson?: Record<string, any> | null | undefined;
   } | null | undefined;
   appointment?: {
     confirmationCode?: string | null | undefined;

@@ -128,6 +128,13 @@ export const api = {
       }),
     getSession: (caseId: string) =>
       fetchJson<any>(`/orchestrator/cases/${caseId}/session`),
+    prepareLogin: (caseId: string) =>
+      fetchJson<any>(`/orchestrator/cases/${caseId}/prepare-login`, {
+        method: 'POST',
+        body: JSON.stringify({}),
+      }),
+    getAuthStatus: (caseId: string) =>
+      fetchJson<any>(`/orchestrator/cases/${caseId}/auth-status`),
   },
 
   notifications: {

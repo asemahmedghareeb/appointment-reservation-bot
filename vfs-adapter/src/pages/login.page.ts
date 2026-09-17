@@ -108,11 +108,11 @@ export class LoginPage extends BaseVfsPage {
       await this.waitAndClick(submitBtn, 10000);
     });
 
-    // Wait for navigation to dashboard or application-detail
-    this.log('Waiting for post-login redirect to dashboard...');
+    // Wait for navigation away from login (e.g. /dashboard, /application-detail, /otp, /challenge)
+    this.log('Waiting for post-login redirect to dashboard or verification...');
     await this.page.waitForURL(
-      (url) => url.pathname.includes('/dashboard') || url.pathname.includes('/application-detail'),
-      { timeout: 45000 }
+      (url) => !url.pathname.endsWith('/login') || url.pathname.includes('/dashboard') || url.pathname.includes('/otp'),
+      { timeout: 30000 }
     ).catch(() => {});
     await this.page.waitForTimeout(2000);
   }

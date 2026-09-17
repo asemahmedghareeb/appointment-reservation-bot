@@ -241,7 +241,17 @@
     "liveMonitorVisualStatus": "Live Monitor",
     "liveMonitorProviderBrowser": "Provider Browser",
     "liveMonitorReconnect": "Reconnect Screen",
-    "liveMonitorNoStreamDesc": "No active browser session for this case. Live view will start automatically once automation begins."
+    "liveMonitorNoStreamDesc": "No active browser session for this case. Live view will start automatically once automation begins.",
+    "openVfsSession": "Open VFS Login Session",
+    "openingVfsSession": "Opening VFS Session...",
+    "vfsLoginRequiredTitle": "Login Required",
+    "vfsLoginRequiredDesc": "Please sign in to the VFS account before starting automation.",
+    "vfsLoginSuccessTitle": "Logged In Successfully",
+    "vfsLoginSuccessDesc": "Session is ready to run the bot",
+    "startBot": "Start Bot",
+    "botRunningNow": "Bot is Running Now",
+    "openPaymentPage": "Open Payment Page",
+    "paymentReachedDesc": "Payment page reached successfully. Please complete payment manually."
   },
   "clients": {
     "title": "Clients",
