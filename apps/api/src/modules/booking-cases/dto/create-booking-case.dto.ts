@@ -50,8 +50,16 @@ export class CreateBookingCaseDto {
   providerTermsAccepted?: boolean = false;
 
   @IsOptional()
+  @IsISO8601()
+  termsAcceptedAt?: string;
+
+  @IsOptional()
   @IsBoolean()
   marketingConsent?: boolean = false;
+
+  @IsOptional()
+  @IsISO8601()
+  marketingConsentAt?: string;
 
   @IsOptional()
   @IsBoolean()

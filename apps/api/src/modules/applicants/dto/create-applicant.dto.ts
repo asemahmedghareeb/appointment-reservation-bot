@@ -6,6 +6,7 @@ import {
   IsOptional,
   IsEmail,
 } from 'class-validator';
+import { Transform } from 'class-transformer';
 import { Gender } from '@visaflow/shared-types';
 
 export class CreateApplicantDto {
@@ -27,18 +28,22 @@ export class CreateApplicantDto {
   @IsNotEmpty()
   nationality!: string;
 
+  @Transform(({ value }) => (typeof value === 'string' && value.trim() === '' ? undefined : value))
   @IsString()
   @IsOptional()
   phone?: string;
 
+  @Transform(({ value }) => (typeof value === 'string' && value.trim() === '' ? undefined : value))
   @IsString()
   @IsOptional()
   phoneCountryCode?: string;
 
+  @Transform(({ value }) => (typeof value === 'string' && value.trim() === '' ? undefined : value))
   @IsString()
   @IsOptional()
   phoneNumber?: string;
 
+  @Transform(({ value }) => (typeof value === 'string' && value.trim() === '' ? undefined : value))
   @IsEmail()
   @IsOptional()
   email?: string;
@@ -50,6 +55,7 @@ export class CreateApplicantDto {
   @IsISO8601()
   passportExpiry!: string;
 
+  @Transform(({ value }) => (typeof value === 'string' && value.trim() === '' ? undefined : value))
   @IsString()
   @IsOptional()
   clientId?: string;

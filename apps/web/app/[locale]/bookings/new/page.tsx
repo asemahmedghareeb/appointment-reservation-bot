@@ -121,9 +121,7 @@ export default function LocalizedNewBookingWizardPage() {
   const [selectedRouteId, setSelectedRouteId] = useState<string>('');
 
   // STEP 2: Multi-Applicants State
-  const [applicants, setApplicants] = useState<WizardApplicant[]>([
-    { ...DEFAULT_APPLICANT, isPrimary: true },
-  ]);
+  const [applicants, setApplicants] = useState<WizardApplicant[]>([]);
   const [showApplicantModal, setShowApplicantModal] = useState(false);
   const [editingApplicantIndex, setEditingApplicantIndex] = useState<number | null>(null);
   const [activeApplicant, setActiveApplicant] = useState<WizardApplicant>({ ...DEFAULT_APPLICANT });
@@ -327,11 +325,35 @@ export default function LocalizedNewBookingWizardPage() {
     setShowApplicantModal(true);
   };
 
+  const checkApplicantCompleteness = (app: WizardApplicant, index: number): string | null => {
+    if (!app.firstName?.trim()) {
+      return locale === 'ar' ? `المتقدم #${index + 1}: الاسم الأول مطلوب` : `Applicant #${index + 1}: First name is required`;
+    }
+    if (!app.lastName?.trim()) {
+      return locale === 'ar' ? `المتقدم #${index + 1}: اسم العائلة مطلوب` : `Applicant #${index + 1}: Last name is required`;
+    }
+    if (!app.id && (!app.passportNumber?.trim() || app.passportNumber.includes('*'))) {
+      return locale === 'ar' ? `المتقدم #${index + 1}: رقم جواز السفر مطلوب بشكل كامل وصحيح` : `Applicant #${index + 1}: Valid passport number is required`;
+    }
+    if (!app.nationality?.trim()) {
+      return locale === 'ar' ? `المتقدم #${index + 1}: الجنسية مطلوبة` : `Applicant #${index + 1}: Nationality is required`;
+    }
+    if (!app.dateOfBirth) {
+      return locale === 'ar' ? `المتقدم #${index + 1}: تاريخ الميلاد مطلوب` : `Applicant #${index + 1}: Date of birth is required`;
+    }
+    if (!app.passportExpiry) {
+      return locale === 'ar' ? `المتقدم #${index + 1}: تاريخ انتهاء الجواز مطلوب` : `Applicant #${index + 1}: Passport expiry date is required`;
+    }
+    if (!app.id && !app.phoneNumber?.trim()) {
+      return locale === 'ar' ? `المتقدم #${index + 1}: رقم الهاتف مطلوب` : `Applicant #${index + 1}: Phone number is required`;
+    }
+    return null;
+  };
+
   const handleRemoveApplicant = (idx: number) => {
-    if (applicants.length <= 1) return;
     setApplicants((prev) => {
       const next = prev.filter((_, i) => i !== idx);
-      // Ensure at least one primary
+      // Ensure at least one primary if applicants remain
       if (!next.some((a) => a.isPrimary) && next.length > 0) {
         next[0]!.isPrimary = true;
       }
@@ -376,7 +398,11 @@ export default function LocalizedNewBookingWizardPage() {
       errs.dateOfBirth = locale === 'ar' ? 'تاريخ الميلاد لا يمكن أن يكون في المستقبل' : 'Date of birth cannot be in future';
     }
     if (!app.nationality.trim()) errs.nationality = locale === 'ar' ? 'الجنسية مطلوبة' : 'Nationality required';
-    if (!app.passportNumber.trim()) errs.passportNumber = locale === 'ar' ? 'رقم جواز السفر مطلوب' : 'Passport number required';
+    if (!app.passportNumber.trim()) {
+      errs.passportNumber = locale === 'ar' ? 'رقم جواز السفر مطلوب' : 'Passport number required';
+    } else if (!app.id && app.passportNumber.includes('*')) {
+      errs.passportNumber = locale === 'ar' ? 'يرجى إدخال رقم جواز السفر كاملاً' : 'Full valid passport number required';
+    }
     if (!app.passportExpiry) {
       errs.passportExpiry = locale === 'ar' ? 'تاريخ الانتهاء مطلوب' : 'Expiry date required';
     } else if (new Date(app.passportExpiry) <= new Date()) {
@@ -384,9 +410,9 @@ export default function LocalizedNewBookingWizardPage() {
     }
     if (!app.phoneCountryCode.trim()) errs.phoneCountryCode = locale === 'ar' ? 'رمز الدولة مطلوب' : 'Country code required';
     if (!app.phoneNumber.trim()) errs.phoneNumber = locale === 'ar' ? 'رقم الهاتف مطلوب' : 'Phone number required';
-    if (!app.email.trim()) {
-      errs.email = locale === 'ar' ? 'البريد الإلكتروني مطلوب' : 'Email required';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(app.email.trim())) {
+    if (app.isPrimary && !app.email.trim()) {
+      errs.email = locale === 'ar' ? 'البريد الإلكتروني مطلوب للمتقدم الرئيسي' : 'Email required for primary applicant';
+    } else if (app.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(app.email.trim())) {
       errs.email = locale === 'ar' ? 'صيغة البريد الإلكتروني غير صالحة' : 'Invalid email format';
     }
 
@@ -454,6 +480,13 @@ export default function LocalizedNewBookingWizardPage() {
       if (applicants.length === 0) {
         throw new Error(locale === 'ar' ? 'يجب إضافة متقدم واحد على الأقل' : 'At least one applicant is required');
       }
+      // Check completeness for all applicants
+      for (let i = 0; i < applicants.length; i++) {
+        const issue = checkApplicantCompleteness(applicants[i]!, i);
+        if (issue) {
+          throw new Error(issue);
+        }
+      }
       if (!providerTermsAccepted) {
         throw new Error(locale === 'ar' ? 'يجب الموافقة على الشروط والأحكام للمتابعة' : 'You must accept the Terms and Conditions to proceed');
       }
@@ -467,28 +500,43 @@ export default function LocalizedNewBookingWizardPage() {
 
         if (!applicantId) {
           try {
-            const created = await api.applicants.create({
-              firstName: app.firstName,
-              lastName: app.lastName,
+            const applicantPayload: any = {
+              firstName: app.firstName.trim(),
+              lastName: app.lastName.trim(),
               gender: app.gender,
               dateOfBirth: new Date(app.dateOfBirth).toISOString(),
-              nationality: app.nationality,
-              phoneCountryCode: app.phoneCountryCode,
-              phoneNumber: app.phoneNumber,
-              phone: `${app.phoneCountryCode}${app.phoneNumber}`,
-              email: app.email,
-              passportNumber: app.passportNumber,
+              nationality: app.nationality.trim().toUpperCase(),
+              passportNumber: app.passportNumber.trim().toUpperCase(),
               passportExpiry: new Date(app.passportExpiry).toISOString(),
-            });
+            };
+            if (app.phoneCountryCode?.trim()) applicantPayload.phoneCountryCode = app.phoneCountryCode.trim();
+            if (app.phoneNumber?.trim()) applicantPayload.phoneNumber = app.phoneNumber.trim();
+            if (app.phoneNumber?.trim()) {
+              applicantPayload.phone = `${app.phoneCountryCode?.trim() || '+20'}${app.phoneNumber.trim()}`;
+            }
+            if (app.email?.trim()) applicantPayload.email = app.email.trim();
+
+            const created = await api.applicants.create(applicantPayload);
             applicantId = created.id;
           } catch (err: any) {
+            console.error('[Applicant Create Failed]:', err);
             if (err.details?.existingApplicantId) {
               applicantId = err.details.existingApplicantId;
             } else {
-              const existing = await api.applicants.lookupByPassport(app.passportNumber).catch(() => null);
+              const existing = await api.applicants.lookupByPassport(app.passportNumber.trim().toUpperCase()).catch(() => null);
               if (existing?.id) {
                 applicantId = existing.id;
               } else {
+                const valErrors = Array.isArray(err.details?.validationErrors)
+                  ? err.details.validationErrors.join(', ')
+                  : null;
+                if (valErrors) {
+                  throw new Error(
+                    locale === 'ar'
+                      ? `بيانات المتقدم (${app.firstName || ''} ${app.lastName || ''}) غير صحيحة: ${valErrors}`
+                      : `Applicant (${app.firstName || ''} ${app.lastName || ''}) error: ${valErrors}`
+                  );
+                }
                 throw err;
               }
             }
@@ -561,8 +609,16 @@ export default function LocalizedNewBookingWizardPage() {
       // 6. Navigate to Case Detail
       router.push(`/bookings/${createdCase.id}`);
     } catch (err: any) {
-      setErrorMsg(getLocalizedErrorMessage(err.message, locale));
+      console.error('[Booking Final Submit Error]:', err);
+      const valErrors = Array.isArray(err.details?.validationErrors)
+        ? `: ${err.details.validationErrors.join(', ')}`
+        : '';
+      const baseMsg = err.message || (locale === 'ar' ? 'فشلت العملية' : 'Operation failed');
+      setErrorMsg(`${getLocalizedErrorMessage(baseMsg, locale)}${valErrors}`);
       setSubmitting(false);
+      if (typeof window !== 'undefined') {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
     }
   }
 
@@ -950,87 +1006,137 @@ export default function LocalizedNewBookingWizardPage() {
                 </button>
               </div>
 
-              {/* Applicants Table / Summary List */}
-              <div style={{ overflowX: 'auto' }}>
-                <table
-                  id="applicants-summary-table"
+              {/* Applicants Table or Empty State */}
+              {applicants.length === 0 ? (
+                <div
+                  id="applicants-empty-state"
                   style={{
-                    width: '100%',
-                    borderCollapse: 'collapse',
-                    textAlign: 'start',
-                    fontSize: '0.875rem',
+                    textAlign: 'center',
+                    padding: '48px 24px',
+                    border: '2px dashed var(--border-subtle)',
+                    borderRadius: '12px',
+                    backgroundColor: 'rgba(15, 23, 42, 0.4)',
                   }}
                 >
-                  <thead>
-                    <tr style={{ borderBottom: '1px solid var(--border-subtle)', color: '#64748b' }}>
-                      <th style={{ padding: '10px 8px', textAlign: 'start' }}>#</th>
-                      <th style={{ padding: '10px 8px', textAlign: 'start' }}>{t('fullName')}</th>
-                      <th style={{ padding: '10px 8px', textAlign: 'start' }}>{t('passportNumber')}</th>
-                      <th style={{ padding: '10px 8px', textAlign: 'start' }}>{t('nationality')}</th>
-                      <th style={{ padding: '10px 8px', textAlign: 'start' }}>{t('dateOfBirth')}</th>
-                      <th style={{ padding: '10px 8px', textAlign: 'start' }}>{t('passportExpiryDate')}</th>
-                      <th style={{ padding: '10px 8px', textAlign: 'start' }}>{t('contactNumber')}</th>
-                      <th style={{ padding: '10px 8px', textAlign: 'start' }}>{t('email')}</th>
-                      <th style={{ padding: '10px 8px', textAlign: 'center' }}>{tCommon('actions')}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {applicants.map((app, idx) => {
-                      const maskedPassport = app.passportNumber
-                        ? `${app.passportNumber.slice(0, 1)}****${app.passportNumber.slice(-3)}`
-                        : '—';
+                  <Users size={40} color="#60a5fa" style={{ marginBottom: '12px', opacity: 0.8 }} />
+                  <h4 style={{ color: '#f8fafc', fontSize: '1rem', fontWeight: 600, margin: '0 0 6px 0' }}>
+                    {t('noApplicantsYet')}
+                  </h4>
+                  <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: '0 0 16px 0', maxWidth: '420px', marginInline: 'auto' }}>
+                    {t('noApplicantsDesc')}
+                  </p>
+                  <button
+                    type="button"
+                    id="btn-add-primary-applicant"
+                    onClick={handleOpenAddApplicant}
+                    className="btn-primary"
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 20px' }}
+                  >
+                    <Plus size={16} />
+                    <span>{t('addPrimaryApplicant')}</span>
+                  </button>
+                </div>
+              ) : (
+                <div style={{ overflowX: 'auto' }}>
+                  <table
+                    id="applicants-summary-table"
+                    style={{
+                      width: '100%',
+                      borderCollapse: 'collapse',
+                      textAlign: 'start',
+                      fontSize: '0.875rem',
+                    }}
+                  >
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid var(--border-subtle)', color: '#64748b' }}>
+                        <th style={{ padding: '10px 8px', textAlign: 'start' }}>#</th>
+                        <th style={{ padding: '10px 8px', textAlign: 'start' }}>{t('fullName')}</th>
+                        <th style={{ padding: '10px 8px', textAlign: 'start' }}>{t('passportNumber')}</th>
+                        <th style={{ padding: '10px 8px', textAlign: 'start' }}>{t('nationality')}</th>
+                        <th style={{ padding: '10px 8px', textAlign: 'start' }}>{t('dateOfBirth')}</th>
+                        <th style={{ padding: '10px 8px', textAlign: 'start' }}>{t('passportExpiryDate')}</th>
+                        <th style={{ padding: '10px 8px', textAlign: 'start' }}>{t('contactNumber')}</th>
+                        <th style={{ padding: '10px 8px', textAlign: 'start' }}>{t('email')}</th>
+                        <th style={{ padding: '10px 8px', textAlign: 'center' }}>{tCommon('actions')}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {applicants.map((app, idx) => {
+                        const completenessIssue = checkApplicantCompleteness(app, idx);
+                        const maskedPassport = app.passportNumber
+                          ? app.passportNumber.includes('*')
+                            ? app.passportNumber
+                            : `${app.passportNumber.slice(0, 1)}****${app.passportNumber.slice(-3)}`
+                          : '—';
 
-                      return (
-                        <tr
-                          key={idx}
-                          id={`applicant-item-${idx}`}
-                          style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}
-                        >
-                          <td style={{ padding: '12px 8px', color: '#94a3b8' }}>{idx + 1}</td>
-                          <td style={{ padding: '12px 8px', fontWeight: 600, color: '#f8fafc' }}>
-                            {app.firstName || '—'} {app.lastName || ''}
-                            {app.isPrimary && (
-                              <span
-                                style={{
-                                  marginInlineStart: '6px',
-                                  fontSize: '0.7rem',
-                                  color: '#60a5fa',
-                                  backgroundColor: 'rgba(59, 130, 246, 0.15)',
-                                  padding: '2px 6px',
-                                  borderRadius: '4px',
-                                }}
-                              >
-                                {tCommon('primary')}
-                              </span>
-                            )}
-                          </td>
-                          <td style={{ padding: '12px 8px', fontFamily: 'monospace', color: '#cbd5e1' }}>
-                            {maskedPassport}
-                          </td>
-                          <td style={{ padding: '12px 8px', color: '#94a3b8' }}>{app.nationality}</td>
-                          <td style={{ padding: '12px 8px', color: '#94a3b8' }}>{app.dateOfBirth}</td>
-                          <td style={{ padding: '12px 8px', color: '#94a3b8' }}>{app.passportExpiry}</td>
-                          <td style={{ padding: '12px 8px', color: '#94a3b8', direction: 'ltr', textAlign: 'start' }}>
-                            {app.phoneCountryCode} {app.phoneNumber}
-                          </td>
-                          <td style={{ padding: '12px 8px', color: '#94a3b8' }}>{app.email}</td>
-                          <td style={{ padding: '12px 8px', textAlign: 'center' }}>
-                            <div style={{ display: 'inline-flex', gap: '8px' }}>
-                              <button
-                                type="button"
-                                onClick={() => handleOpenEditApplicant(idx)}
-                                title={t('editApplicant')}
-                                style={{
-                                  background: 'transparent',
-                                  border: 'none',
-                                  color: '#60a5fa',
-                                  cursor: 'pointer',
-                                  padding: '4px',
-                                }}
-                              >
-                                <Edit3 size={15} />
-                              </button>
-                              {applicants.length > 1 && (
+                        return (
+                          <tr
+                            key={idx}
+                            id={`applicant-item-${idx}`}
+                            style={{
+                              borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+                              backgroundColor: completenessIssue ? 'rgba(239, 68, 68, 0.04)' : undefined,
+                            }}
+                          >
+                            <td style={{ padding: '12px 8px', color: '#94a3b8' }}>{idx + 1}</td>
+                            <td style={{ padding: '12px 8px', fontWeight: 600, color: '#f8fafc' }}>
+                              {app.firstName || '—'} {app.lastName || ''}
+                              {app.isPrimary && (
+                                <span
+                                  style={{
+                                    marginInlineStart: '6px',
+                                    fontSize: '0.7rem',
+                                    color: '#60a5fa',
+                                    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                                    padding: '2px 6px',
+                                    borderRadius: '4px',
+                                  }}
+                                >
+                                  {tCommon('primary')}
+                                </span>
+                              )}
+                              {completenessIssue && (
+                                <span
+                                  style={{
+                                    marginInlineStart: '6px',
+                                    fontSize: '0.7rem',
+                                    color: '#f59e0b',
+                                    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+                                    padding: '2px 6px',
+                                    borderRadius: '4px',
+                                  }}
+                                  title={completenessIssue}
+                                >
+                                  {t('incomplete')}
+                                </span>
+                              )}
+                            </td>
+                            <td style={{ padding: '12px 8px', fontFamily: 'monospace', color: '#cbd5e1' }}>
+                              {maskedPassport}
+                            </td>
+                            <td style={{ padding: '12px 8px', color: '#94a3b8' }}>{app.nationality}</td>
+                            <td style={{ padding: '12px 8px', color: '#94a3b8' }}>{app.dateOfBirth}</td>
+                            <td style={{ padding: '12px 8px', color: '#94a3b8' }}>{app.passportExpiry}</td>
+                            <td style={{ padding: '12px 8px', color: '#94a3b8', direction: 'ltr', textAlign: 'start' }}>
+                              {app.phoneCountryCode} {app.phoneNumber}
+                            </td>
+                            <td style={{ padding: '12px 8px', color: '#94a3b8' }}>{app.email || '—'}</td>
+                            <td style={{ padding: '12px 8px', textAlign: 'center' }}>
+                              <div style={{ display: 'inline-flex', gap: '8px' }}>
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenEditApplicant(idx)}
+                                  title={t('editApplicant')}
+                                  style={{
+                                    background: 'transparent',
+                                    border: 'none',
+                                    color: '#60a5fa',
+                                    cursor: 'pointer',
+                                    padding: '4px',
+                                  }}
+                                >
+                                  <Edit3 size={15} />
+                                </button>
                                 <button
                                   type="button"
                                   onClick={() => handleRemoveApplicant(idx)}
@@ -1045,15 +1151,15 @@ export default function LocalizedNewBookingWizardPage() {
                                 >
                                   <Trash2 size={15} />
                                 </button>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
 
               {/* Applicant Edit / Add Modal or Inline Card */}
               {showApplicantModal && (
@@ -1861,35 +1967,50 @@ export default function LocalizedNewBookingWizardPage() {
                     </button>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {applicants.map((a, i) => (
-                      <div
-                        key={i}
-                        style={{
-                          padding: '10px 12px',
-                          backgroundColor: 'rgba(255, 255, 255, 0.02)',
-                          borderRadius: '6px',
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                          fontSize: '0.85rem',
-                        }}
-                      >
-                        <div>
-                          <strong>{a.firstName} {a.lastName}</strong>
-                          {a.isPrimary && (
-                            <span style={{ marginInlineStart: '6px', color: '#60a5fa', fontSize: '0.75rem' }}>
-                              ({tCommon('primary')})
+                    {applicants.map((a, i) => {
+                      const issue = checkApplicantCompleteness(a, i);
+                      const passportDisplay = a.passportNumber
+                        ? a.passportNumber.includes('*')
+                          ? a.passportNumber
+                          : `${a.passportNumber.slice(0, 1)}****${a.passportNumber.slice(-3)}`
+                        : '—';
+
+                      return (
+                        <div
+                          key={i}
+                          style={{
+                            padding: '10px 12px',
+                            backgroundColor: issue ? 'rgba(239, 68, 68, 0.08)' : 'rgba(255, 255, 255, 0.02)',
+                            border: issue ? '1px solid rgba(239, 68, 68, 0.3)' : 'none',
+                            borderRadius: '6px',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            fontSize: '0.85rem',
+                          }}
+                        >
+                          <div>
+                            <strong>{a.firstName || '—'} {a.lastName || ''}</strong>
+                            {a.isPrimary && (
+                              <span style={{ marginInlineStart: '6px', color: '#60a5fa', fontSize: '0.75rem' }}>
+                                ({tCommon('primary')})
+                              </span>
+                            )}
+                            {issue && (
+                              <span style={{ marginInlineStart: '6px', color: '#ef4444', fontSize: '0.75rem' }}>
+                                ({issue})
+                              </span>
+                            )}
+                            <span style={{ marginInlineStart: '10px', color: '#94a3b8' }}>
+                              Passport: <TechnicalText>{passportDisplay}</TechnicalText>
                             </span>
-                          )}
-                          <span style={{ marginInlineStart: '10px', color: '#94a3b8' }}>
-                            Passport: <TechnicalText>{a.passportNumber.slice(0, 1)}****{a.passportNumber.slice(-3)}</TechnicalText>
+                          </div>
+                          <span style={{ color: '#94a3b8', direction: 'ltr' }}>
+                            {a.phoneCountryCode} {a.phoneNumber}
                           </span>
                         </div>
-                        <span style={{ color: '#94a3b8', direction: 'ltr' }}>
-                          {a.phoneCountryCode} {a.phoneNumber}
-                        </span>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -2056,9 +2177,21 @@ export default function LocalizedNewBookingWizardPage() {
                 onClick={() => {
                   setErrorMsg(null);
                   if (currentStep === 1 && !selectedRouteId) return;
-                  if (currentStep === 2 && applicants.length === 0) {
-                    setErrorMsg(t('atLeastOneApplicant'));
-                    return;
+                  if (currentStep === 2) {
+                    if (applicants.length === 0) {
+                      setErrorMsg(t('atLeastOneApplicant'));
+                      return;
+                    }
+                    for (let i = 0; i < applicants.length; i++) {
+                      const issue = checkApplicantCompleteness(applicants[i]!, i);
+                      if (issue) {
+                        setErrorMsg(issue);
+                        if (typeof window !== 'undefined') {
+                          window.scrollTo({ top: 0, behavior: 'smooth' });
+                        }
+                        return;
+                      }
+                    }
                   }
                   setCurrentStep((s) => s + 1);
                 }}
