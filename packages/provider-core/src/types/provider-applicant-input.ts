@@ -13,5 +13,7 @@ export interface ProviderApplicantInput {
   passportNumber: string;
   passportExpiry: string;
   phone?: string | null;
+  phoneCountryCode?: string | null;
+  phoneNumber?: string | null;
   email?: string | null;
 }

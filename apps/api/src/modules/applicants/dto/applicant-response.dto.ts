@@ -9,6 +9,8 @@ export class ApplicantResponseDto {
   dateOfBirth!: Date;
   nationality!: string;
   phone!: string | null;
+  phoneCountryCode?: string | null;
+  phoneNumber?: string | null;
   email!: string | null;
   passportMasked!: string;
   passportExpiry!: Date;

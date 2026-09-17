@@ -15,9 +15,16 @@ export interface ProviderContext {
     configuration: Record<string, unknown>;
   };
   casePreferences: {
+    appointmentSelectionMode?: string;
     preferredDateFrom?: string;
     preferredDateTo?: string;
+    preferredDate?: string;
     preferredTime?: string;
+    preferredTimeFrom?: string;
+    preferredTimeTo?: string;
+    acceptAnyAvailableTime?: boolean;
+    appointmentType?: string;
+    services?: Array<{ providerServiceCode?: string; name: string; selected: boolean }>;
     allowGroupSplit: boolean;
   };
   applicantCount: number;

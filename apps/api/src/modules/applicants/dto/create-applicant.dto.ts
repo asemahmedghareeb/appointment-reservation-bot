@@ -31,6 +31,14 @@ export class CreateApplicantDto {
   @IsOptional()
   phone?: string;
 
+  @IsString()
+  @IsOptional()
+  phoneCountryCode?: string;
+
+  @IsString()
+  @IsOptional()
+  phoneNumber?: string;
+
   @IsEmail()
   @IsOptional()
   email?: string;

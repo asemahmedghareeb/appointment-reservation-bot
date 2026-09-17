@@ -94,6 +94,10 @@ export interface OperationsCaseApplicant {
   nationality: string;
   passportMasked: string;
   passportExpiry: string;
+  phone?: string | null | undefined;
+  phoneCountryCode?: string | null | undefined;
+  phoneNumber?: string | null | undefined;
+  email?: string | null | undefined;
 }
 
 export interface OperationsCaseDetail {
@@ -101,9 +105,26 @@ export interface OperationsCaseDetail {
   caseNumber: string;
   status: BookingCaseStatus;
   bookingMode: string;
+  appointmentSelectionMode?: string | undefined;
   preferredDateFrom?: string | null | undefined;
   preferredDateTo?: string | null | undefined;
+  preferredDate?: string | null | undefined;
   preferredTime?: string | null | undefined;
+  preferredTimeFrom?: string | null | undefined;
+  preferredTimeTo?: string | null | undefined;
+  acceptAnyAvailableTime?: boolean | undefined;
+  appointmentType?: string | null | undefined;
+  servicesJson?: any[] | null | undefined;
+  providerTermsAccepted?: boolean | undefined;
+  termsAcceptedAt?: string | null | undefined;
+  marketingConsent?: boolean | undefined;
+  marketingConsentAt?: string | null | undefined;
+  providerServiceFee?: number | null | undefined;
+  optionalServicesTotal?: number | null | undefined;
+  additionalFees?: number | null | undefined;
+  totalAmount?: number | null | undefined;
+  currency?: string | null | undefined;
+  feeCapturedAt?: string | null | undefined;
   allowGroupSplit: boolean;
   provider: {
     code: ProviderCode;

@@ -43,9 +43,16 @@ export class ProviderContextLoaderService {
       },
       casePreferences: {
         allowGroupSplit: bookingCase.allowGroupSplit,
+        ...(bookingCase.appointmentSelectionMode ? { appointmentSelectionMode: bookingCase.appointmentSelectionMode as any } : {}),
         ...(bookingCase.preferredDateFrom ? { preferredDateFrom: bookingCase.preferredDateFrom.toISOString().slice(0, 10) } : {}),
         ...(bookingCase.preferredDateTo ? { preferredDateTo: bookingCase.preferredDateTo.toISOString().slice(0, 10) } : {}),
+        ...(bookingCase.preferredDate ? { preferredDate: bookingCase.preferredDate.toISOString().slice(0, 10) } : {}),
         ...(bookingCase.preferredTime ? { preferredTime: bookingCase.preferredTime } : {}),
+        ...(bookingCase.preferredTimeFrom ? { preferredTimeFrom: bookingCase.preferredTimeFrom } : {}),
+        ...(bookingCase.preferredTimeTo ? { preferredTimeTo: bookingCase.preferredTimeTo } : {}),
+        ...(typeof bookingCase.acceptAnyAvailableTime === 'boolean' ? { acceptAnyAvailableTime: bookingCase.acceptAnyAvailableTime } : {}),
+        ...(bookingCase.appointmentType ? { appointmentType: bookingCase.appointmentType } : {}),
+        ...(bookingCase.servicesJson ? { services: bookingCase.servicesJson as any } : {}),
       },
     };
 
@@ -71,6 +78,8 @@ export class ProviderContextLoaderService {
         passportNumber: plaintextPassport,
         passportExpiry: app.passportExpiry.toISOString().slice(0, 10),
         ...(app.phone ? { phone: app.phone } : {}),
+        ...(app.phoneCountryCode ? { phoneCountryCode: app.phoneCountryCode } : {}),
+        ...(app.phoneNumber ? { phoneNumber: app.phoneNumber } : {}),
         ...(app.email ? { email: app.email } : {}),
       };
     });

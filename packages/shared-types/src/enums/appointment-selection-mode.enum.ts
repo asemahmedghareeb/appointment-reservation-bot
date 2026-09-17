@@ -1,0 +1,6 @@
+export enum AppointmentSelectionMode {
+  ANY_AVAILABLE = 'ANY_AVAILABLE',
+  DATE_RANGE = 'DATE_RANGE',
+  EXACT_DATE = 'EXACT_DATE',
+  EXACT_DATE_AND_TIME = 'EXACT_DATE_AND_TIME',
+}

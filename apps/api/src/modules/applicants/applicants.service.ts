@@ -46,7 +46,9 @@ export class ApplicantsService {
       gender: dto.gender,
       dateOfBirth: new Date(dto.dateOfBirth),
       nationality: dto.nationality,
-      phone: dto.phone ?? null,
+      phone: dto.phone ?? (dto.phoneCountryCode && dto.phoneNumber ? `${dto.phoneCountryCode}${dto.phoneNumber}` : null),
+      phoneCountryCode: dto.phoneCountryCode ?? null,
+      phoneNumber: dto.phoneNumber ?? null,
       email: dto.email ?? null,
       passportNumberEncrypted: passportEncrypted,
       passportNumberHash: passportHash,
@@ -123,6 +125,8 @@ export class ApplicantsService {
     if (dto.dateOfBirth !== undefined) data.dateOfBirth = new Date(dto.dateOfBirth);
     if (dto.nationality !== undefined) data.nationality = dto.nationality;
     if (dto.phone !== undefined) data.phone = dto.phone;
+    if (dto.phoneCountryCode !== undefined) data.phoneCountryCode = dto.phoneCountryCode;
+    if (dto.phoneNumber !== undefined) data.phoneNumber = dto.phoneNumber;
     if (dto.email !== undefined) data.email = dto.email;
     if (dto.passportExpiry !== undefined) data.passportExpiry = new Date(dto.passportExpiry);
     if (dto.clientId !== undefined) {
@@ -181,6 +185,8 @@ export class ApplicantsService {
       dateOfBirth: applicant.dateOfBirth,
       nationality: applicant.nationality,
       phone: applicant.phone,
+      phoneCountryCode: (applicant as any).phoneCountryCode ?? null,
+      phoneNumber: (applicant as any).phoneNumber ?? null,
       email: applicant.email,
       passportMasked,
       passportExpiry: applicant.passportExpiry,

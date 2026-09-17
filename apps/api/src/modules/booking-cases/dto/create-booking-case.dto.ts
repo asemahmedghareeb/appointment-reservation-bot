@@ -1,9 +1,14 @@
-import { IsString, IsNotEmpty, IsOptional, IsISO8601, IsBoolean } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsISO8601, IsBoolean, IsEnum } from 'class-validator';
+import { AppointmentSelectionMode } from '@visaflow/shared-types';
 
 export class CreateBookingCaseDto {
   @IsString()
   @IsNotEmpty()
   providerRouteId!: string;
+
+  @IsOptional()
+  @IsEnum(AppointmentSelectionMode)
+  appointmentSelectionMode?: AppointmentSelectionMode = AppointmentSelectionMode.ANY_AVAILABLE;
 
   @IsOptional()
   @IsISO8601()
@@ -14,8 +19,39 @@ export class CreateBookingCaseDto {
   preferredDateTo?: string;
 
   @IsOptional()
+  @IsISO8601()
+  preferredDate?: string;
+
+  @IsOptional()
   @IsString()
   preferredTime?: string;
+
+  @IsOptional()
+  @IsString()
+  preferredTimeFrom?: string;
+
+  @IsOptional()
+  @IsString()
+  preferredTimeTo?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  acceptAnyAvailableTime?: boolean = true;
+
+  @IsOptional()
+  @IsString()
+  appointmentType?: string;
+
+  @IsOptional()
+  servicesJson?: any;
+
+  @IsOptional()
+  @IsBoolean()
+  providerTermsAccepted?: boolean = false;
+
+  @IsOptional()
+  @IsBoolean()
+  marketingConsent?: boolean = false;
 
   @IsOptional()
   @IsBoolean()

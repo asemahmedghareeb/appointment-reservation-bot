@@ -9,6 +9,8 @@ export interface VfsFormattedApplicant {
   passportNumber: string;
   passportExpiry: string; // DD/MM/YYYY
   contactNumber: string;
+  phoneCountryCode?: string | undefined;
+  phoneNumber?: string | undefined;
   email: string;
 }
 
@@ -24,14 +26,16 @@ export function formatVfsDate(dateStr: string): string {
 
 export function mapToVfsApplicant(applicant: ProviderApplicantInput): VfsFormattedApplicant {
   return {
-    firstName: applicant.firstName.trim().toUpperCase(),
-    lastName: applicant.lastName.trim().toUpperCase(),
+    firstName: applicant.firstName.trim(),
+    lastName: applicant.lastName.trim(),
     gender: applicant.gender.toUpperCase(),
     dateOfBirth: formatVfsDate(applicant.dateOfBirth),
     nationality: applicant.nationality.trim().toUpperCase(),
     passportNumber: applicant.passportNumber.trim().toUpperCase(),
     passportExpiry: formatVfsDate(applicant.passportExpiry),
-    contactNumber: applicant.phone ?? '',
-    email: applicant.email ?? '',
+    contactNumber: applicant.phoneNumber?.trim() || applicant.phone?.trim() || '',
+    phoneCountryCode: applicant.phoneCountryCode?.trim(),
+    phoneNumber: applicant.phoneNumber?.trim(),
+    email: applicant.email?.trim() ?? '',
   };
 }

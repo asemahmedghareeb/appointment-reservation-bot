@@ -24,6 +24,8 @@ describe('ApplicantsService', () => {
     dateOfBirth: new Date('2000-01-01'),
     nationality: 'EG',
     phone: '+20100000000',
+    phoneCountryCode: '+20',
+    phoneNumber: '100000000',
     email: 'tarek@example.com',
     passportNumberEncrypted: encrypt('A1234567'),
     passportNumberHash: createPassportLookupHash('A1234567'),

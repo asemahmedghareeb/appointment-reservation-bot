@@ -921,6 +921,12 @@ export default function LocalizedCaseDetailPage() {
                       <th style={{ padding: '8px 10px', fontWeight: 500, textAlign: 'start' }}>{t('passportMasked')}</th>
                       <th style={{ padding: '8px 10px', fontWeight: 500, textAlign: 'start' }}>{t('nationality')}</th>
                       <th style={{ padding: '8px 10px', fontWeight: 500, textAlign: 'start' }}>{t('expiry')}</th>
+                      <th style={{ padding: '8px 10px', fontWeight: 500, textAlign: 'start' }}>
+                        {locale === 'ar' ? 'رقم الهاتف' : 'Phone'}
+                      </th>
+                      <th style={{ padding: '8px 10px', fontWeight: 500, textAlign: 'start' }}>
+                        {locale === 'ar' ? 'البريد الإلكتروني' : 'Email'}
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -970,6 +976,12 @@ export default function LocalizedCaseDetailPage() {
                         <td style={{ padding: '12px 10px', color: '#64748b' }}>
                           {formatDate(app.passportExpiry, locale)}
                         </td>
+                        <td style={{ padding: '12px 10px', color: '#94a3b8', direction: 'ltr', textAlign: 'start' }}>
+                          {app.phoneCountryCode || ''} {app.phoneNumber || app.phone || '—'}
+                        </td>
+                        <td style={{ padding: '12px 10px', color: '#94a3b8' }}>
+                          {app.email || '—'}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -987,13 +999,25 @@ export default function LocalizedCaseDetailPage() {
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                {caseDetail.appointmentSelectionMode && (
+                  <div>
+                    <span style={{ fontSize: '0.75rem', color: '#94a3b8', textTransform: 'uppercase' }}>
+                      {locale === 'ar' ? 'نمط الاختيار' : 'Selection Mode'}
+                    </span>
+                    <div style={{ fontSize: '0.9rem', color: '#38bdf8', fontWeight: 600, marginTop: '2px' }}>
+                      {caseDetail.appointmentSelectionMode}
+                    </div>
+                  </div>
+                )}
+
                 <div>
                   <span style={{ fontSize: '0.75rem', color: '#94a3b8', textTransform: 'uppercase' }}>
                     {t('targetWindow')}
                   </span>
                   <div style={{ fontSize: '0.9rem', color: '#f8fafc', fontWeight: 500, marginTop: '2px' }}>
-                    {caseDetail.preferredDateFrom ? formatDate(caseDetail.preferredDateFrom, locale) : tCommon('any')} →{' '}
-                    {caseDetail.preferredDateTo ? formatDate(caseDetail.preferredDateTo, locale) : tCommon('any')}
+                    {caseDetail.preferredDate
+                      ? formatDate(caseDetail.preferredDate, locale)
+                      : `${caseDetail.preferredDateFrom ? formatDate(caseDetail.preferredDateFrom, locale) : tCommon('any')} → ${caseDetail.preferredDateTo ? formatDate(caseDetail.preferredDateTo, locale) : tCommon('any')}`}
                   </div>
                 </div>
 
@@ -1002,7 +1026,7 @@ export default function LocalizedCaseDetailPage() {
                     {t('timePreference')}
                   </span>
                   <div style={{ fontSize: '0.9rem', color: '#f8fafc', fontWeight: 500, marginTop: '2px' }}>
-                    {caseDetail.preferredTime || tCommon('anyTime')}
+                    {caseDetail.preferredTime || (caseDetail.preferredTimeFrom ? `${caseDetail.preferredTimeFrom} - ${caseDetail.preferredTimeTo}` : tCommon('anyTime'))}
                   </div>
                 </div>
 
@@ -1020,10 +1044,93 @@ export default function LocalizedCaseDetailPage() {
                     {t('providerAccount')}
                   </span>
                   <div style={{ fontSize: '0.9rem', color: '#f8fafc', fontWeight: 500, marginTop: '2px' }}>
-                    {caseDetail.providerAccount?.label || caseDetail.providerAccount?.username || t('autoAllocated')}
+                    {caseDetail.providerAccount?.label || t('autoAllocated')}
                   </div>
                 </div>
               </div>
+
+              {/* Optional Services */}
+              <div style={{ marginTop: '18px', paddingTop: '16px', borderTop: '1px solid var(--border-subtle)' }}>
+                <span style={{ fontSize: '0.75rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 600 }}>
+                  {locale === 'ar' ? 'الخدمات الإضافية المختارة' : 'Selected Optional Services'}
+                </span>
+                <div style={{ fontSize: '0.875rem', color: '#f8fafc', marginTop: '6px' }}>
+                  {caseDetail.servicesJson && (caseDetail.servicesJson as any[]).length > 0 ? (
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                      {(caseDetail.servicesJson as any[]).map((s, idx) => (
+                        <span
+                          key={idx}
+                          style={{
+                            padding: '4px 10px',
+                            borderRadius: '6px',
+                            backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                            border: '1px solid rgba(59, 130, 246, 0.3)',
+                            color: '#93c5fd',
+                            fontSize: '0.8rem',
+                          }}
+                        >
+                          {s.name} ({s.price} {s.currency})
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <span style={{ color: '#6ee7b7' }}>
+                      {locale === 'ar' ? 'لا توجد خدمات إضافية مختارة (افتراضي)' : 'No additional services selected (Default)'}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Fee Captured Breakdown (if available from VFS) */}
+              {caseDetail.totalAmount !== null && caseDetail.totalAmount !== undefined && (
+                <div
+                  style={{
+                    marginTop: '16px',
+                    padding: '14px',
+                    backgroundColor: 'rgba(16, 185, 129, 0.08)',
+                    border: '1px solid rgba(16, 185, 129, 0.3)',
+                    borderRadius: '8px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '6px',
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.8rem', color: '#6ee7b7', fontWeight: 600 }}>
+                      {locale === 'ar' ? 'رسوم VFS الملتقطة' : 'Captured Provider Fees'}
+                    </span>
+                    {caseDetail.feeCapturedAt && (
+                      <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>
+                        {formatDateTime(caseDetail.feeCapturedAt, locale)}
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#f8fafc' }}>
+                    <span>{locale === 'ar' ? 'رسوم خدمة VFS:' : 'VFS Service Charge:'}</span>
+                    <span>{caseDetail.providerServiceFee} {caseDetail.currency || 'EGP'}</span>
+                  </div>
+                  {caseDetail.optionalServicesTotal ? (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#f8fafc' }}>
+                      <span>{locale === 'ar' ? 'خدمات إضافية:' : 'Optional Services:'}</span>
+                      <span>{caseDetail.optionalServicesTotal} {caseDetail.currency || 'EGP'}</span>
+                    </div>
+                  ) : null}
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      fontSize: '0.95rem',
+                      fontWeight: 700,
+                      color: '#6ee7b7',
+                      paddingTop: '6px',
+                      borderTop: '1px solid rgba(16, 185, 129, 0.2)',
+                    }}
+                  >
+                    <span>{locale === 'ar' ? 'الإجمالي:' : 'Total Amount:'}</span>
+                    <span>{caseDetail.totalAmount} {caseDetail.currency || 'EGP'}</span>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

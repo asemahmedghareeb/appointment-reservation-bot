@@ -44,6 +44,13 @@ export class ApplicantDetailsPage extends BaseVfsPage {
       await this.waitAndFill(passNumLocator, mapped.passportNumber);
       await this.waitAndFill(passExpLocator, mapped.passportExpiry);
 
+      if (mapped.phoneCountryCode) {
+        const phoneCodeLocator = this.page.locator(VFS_SELECTORS.applicantDetails.phoneCountryCode).first();
+        if (await phoneCodeLocator.count() > 0) {
+          await this.waitAndFill(phoneCodeLocator, mapped.phoneCountryCode).catch(() => {});
+        }
+      }
+
       if (mapped.contactNumber && await phoneLocator.count() > 0) {
         await this.waitAndFill(phoneLocator, mapped.contactNumber);
       }

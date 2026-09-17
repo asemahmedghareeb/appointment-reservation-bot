@@ -39,6 +39,13 @@ enum BookingMode {
   WAITING_QUEUE
 }
 
+enum AppointmentSelectionMode {
+  ANY_AVAILABLE
+  DATE_RANGE
+  EXACT_DATE
+  EXACT_DATE_AND_TIME
+}
+
 enum UserRole {
   ADMIN
   BOOKING_AGENT
@@ -103,6 +110,8 @@ model Applicant {
   dateOfBirth             DateTime
   nationality             String
   phone                   String?
+  phoneCountryCode        String?
+  phoneNumber             String?
   email                   String?
   passportNumberEncrypted String
   passportNumberHash      String             @unique
@@ -145,28 +154,45 @@ model ProviderRoute {
 }
 
 model BookingCase {
-  id                 String                    @id @default(cuid())
-  caseNumber         String                    @unique
-  providerRouteId    String
-  providerRoute      ProviderRoute             @relation(fields: [providerRouteId], references: [id])
-  status             BookingCaseStatus         @default(DRAFT)
-  bookingMode        BookingMode
-  preferredDateFrom  DateTime?
-  preferredDateTo    DateTime?
-  preferredTime      String?
-  allowGroupSplit    Boolean                   @default(false)
-  createdById        String
-  createdBy          User                      @relation(fields: [createdById], references: [id])
-  createdAt          DateTime                  @default(now())
-  updatedAt          DateTime                  @updatedAt
-  bookingApplicants  BookingApplicant[]
-  stateHistory       BookingCaseStateHistory[]
-  activityLogs       ActivityLog[]
-  providerAccountId  String?
-  providerAccount    ProviderAccount?          @relation(fields: [providerAccountId], references: [id])
-  automationSessions AutomationSession[]
-  paymentHandoffs    PaymentHandoff[]
-  notifications      Notification[]
+  id                       String                    @id @default(cuid())
+  caseNumber               String                    @unique
+  providerRouteId          String
+  providerRoute            ProviderRoute             @relation(fields: [providerRouteId], references: [id])
+  status                   BookingCaseStatus         @default(DRAFT)
+  bookingMode              BookingMode
+  appointmentSelectionMode AppointmentSelectionMode  @default(ANY_AVAILABLE)
+  preferredDateFrom        DateTime?
+  preferredDateTo          DateTime?
+  preferredDate            DateTime?
+  preferredTime            String?
+  preferredTimeFrom        String?
+  preferredTimeTo          String?
+  acceptAnyAvailableTime   Boolean                   @default(true)
+  appointmentType          String?                   @default("STANDARD")
+  servicesJson             Json?                     @default("[]")
+  providerTermsAccepted     Boolean                   @default(false)
+  termsAcceptedAt          DateTime?
+  marketingConsent         Boolean                   @default(false)
+  marketingConsentAt       DateTime?
+  providerServiceFee       Decimal?                  @db.Decimal(10, 2)
+  optionalServicesTotal    Decimal?                  @db.Decimal(10, 2)
+  additionalFees           Decimal?                  @db.Decimal(10, 2)
+  totalAmount              Decimal?                  @db.Decimal(10, 2)
+  currency                 String?
+  feeCapturedAt            DateTime?
+  allowGroupSplit          Boolean                   @default(false)
+  createdById              String
+  createdBy                User                      @relation(fields: [createdById], references: [id])
+  createdAt                DateTime                  @default(now())
+  updatedAt                DateTime                  @updatedAt
+  bookingApplicants        BookingApplicant[]
+  stateHistory             BookingCaseStateHistory[]
+  activityLogs             ActivityLog[]
+  providerAccountId        String?
+  providerAccount          ProviderAccount?          @relation(fields: [providerAccountId], references: [id])
+  automationSessions       AutomationSession[]
+  paymentHandoffs          PaymentHandoff[]
+  notifications            Notification[]
 
   @@index([status])
   @@index([status, updatedAt])

@@ -63,9 +63,20 @@ export class BookingCasesService {
       providerRoute: { connect: { id: route.id } },
       status: BookingCaseStatus.DRAFT,
       bookingMode: route.bookingMode,
+      appointmentSelectionMode: (dto.appointmentSelectionMode as any) ?? 'ANY_AVAILABLE',
       preferredDateFrom: dto.preferredDateFrom ? new Date(dto.preferredDateFrom) : null,
       preferredDateTo: dto.preferredDateTo ? new Date(dto.preferredDateTo) : null,
+      preferredDate: dto.preferredDate ? new Date(dto.preferredDate) : null,
       preferredTime: dto.preferredTime ?? null,
+      preferredTimeFrom: dto.preferredTimeFrom ?? null,
+      preferredTimeTo: dto.preferredTimeTo ?? null,
+      acceptAnyAvailableTime: dto.acceptAnyAvailableTime ?? true,
+      appointmentType: dto.appointmentType ?? 'STANDARD',
+      servicesJson: dto.servicesJson ?? [],
+      providerTermsAccepted: dto.providerTermsAccepted ?? false,
+      termsAcceptedAt: dto.providerTermsAccepted ? new Date() : null,
+      marketingConsent: dto.marketingConsent ?? false,
+      marketingConsentAt: dto.marketingConsent ? new Date() : null,
       allowGroupSplit: dto.allowGroupSplit ?? false,
       createdBy: { connect: { id: actor.id } },
     });
@@ -132,14 +143,43 @@ export class BookingCasesService {
       data.bookingMode = newRoute.bookingMode;
     }
 
+    if (dto.appointmentSelectionMode !== undefined) {
+      (data as any).appointmentSelectionMode = dto.appointmentSelectionMode;
+    }
     if (dto.preferredDateFrom !== undefined) {
       data.preferredDateFrom = dto.preferredDateFrom ? new Date(dto.preferredDateFrom) : null;
     }
     if (dto.preferredDateTo !== undefined) {
       data.preferredDateTo = dto.preferredDateTo ? new Date(dto.preferredDateTo) : null;
     }
+    if (dto.preferredDate !== undefined) {
+      (data as any).preferredDate = dto.preferredDate ? new Date(dto.preferredDate) : null;
+    }
     if (dto.preferredTime !== undefined) {
       data.preferredTime = dto.preferredTime;
+    }
+    if (dto.preferredTimeFrom !== undefined) {
+      (data as any).preferredTimeFrom = dto.preferredTimeFrom;
+    }
+    if (dto.preferredTimeTo !== undefined) {
+      (data as any).preferredTimeTo = dto.preferredTimeTo;
+    }
+    if (dto.acceptAnyAvailableTime !== undefined) {
+      (data as any).acceptAnyAvailableTime = dto.acceptAnyAvailableTime;
+    }
+    if (dto.appointmentType !== undefined) {
+      (data as any).appointmentType = dto.appointmentType;
+    }
+    if (dto.servicesJson !== undefined) {
+      (data as any).servicesJson = dto.servicesJson;
+    }
+    if (dto.providerTermsAccepted !== undefined) {
+      (data as any).providerTermsAccepted = dto.providerTermsAccepted;
+      (data as any).termsAcceptedAt = dto.providerTermsAccepted ? new Date() : null;
+    }
+    if (dto.marketingConsent !== undefined) {
+      (data as any).marketingConsent = dto.marketingConsent;
+      (data as any).marketingConsentAt = dto.marketingConsent ? new Date() : null;
     }
     if (dto.allowGroupSplit !== undefined) {
       data.allowGroupSplit = dto.allowGroupSplit;
@@ -354,6 +394,10 @@ export class BookingCasesService {
         nationality: ba.applicant.nationality,
         passportMasked: maskPassportNumber(plainPassport),
         passportExpiry: ba.applicant.passportExpiry,
+        phone: ba.applicant.phone,
+        phoneCountryCode: (ba.applicant as any).phoneCountryCode ?? null,
+        phoneNumber: (ba.applicant as any).phoneNumber ?? null,
+        email: ba.applicant.email,
         position: ba.position,
         relation: ba.relation as ApplicantRelation,
         isPrimary: ba.isPrimary,
@@ -367,9 +411,26 @@ export class BookingCasesService {
       caseNumber: bookingCase.caseNumber,
       status: bookingCase.status as BookingCaseStatus,
       bookingMode: bookingCase.bookingMode as BookingMode,
+      appointmentSelectionMode: (bookingCase as any).appointmentSelectionMode ?? 'ANY_AVAILABLE',
       preferredDateFrom: bookingCase.preferredDateFrom,
       preferredDateTo: bookingCase.preferredDateTo,
+      preferredDate: (bookingCase as any).preferredDate ?? null,
       preferredTime: bookingCase.preferredTime,
+      preferredTimeFrom: (bookingCase as any).preferredTimeFrom ?? null,
+      preferredTimeTo: (bookingCase as any).preferredTimeTo ?? null,
+      acceptAnyAvailableTime: (bookingCase as any).acceptAnyAvailableTime ?? true,
+      appointmentType: (bookingCase as any).appointmentType ?? null,
+      servicesJson: (bookingCase as any).servicesJson ?? [],
+      providerTermsAccepted: (bookingCase as any).providerTermsAccepted ?? false,
+      termsAcceptedAt: (bookingCase as any).termsAcceptedAt ?? null,
+      marketingConsent: (bookingCase as any).marketingConsent ?? false,
+      marketingConsentAt: (bookingCase as any).marketingConsentAt ?? null,
+      providerServiceFee: (bookingCase as any).providerServiceFee ? Number((bookingCase as any).providerServiceFee) : null,
+      optionalServicesTotal: (bookingCase as any).optionalServicesTotal ? Number((bookingCase as any).optionalServicesTotal) : null,
+      additionalFees: (bookingCase as any).additionalFees ? Number((bookingCase as any).additionalFees) : null,
+      totalAmount: (bookingCase as any).totalAmount ? Number((bookingCase as any).totalAmount) : null,
+      currency: (bookingCase as any).currency ?? null,
+      feeCapturedAt: (bookingCase as any).feeCapturedAt ?? null,
       allowGroupSplit: bookingCase.allowGroupSplit,
       createdById: bookingCase.createdById,
       createdAt: bookingCase.createdAt,
