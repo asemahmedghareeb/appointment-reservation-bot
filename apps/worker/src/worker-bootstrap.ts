@@ -56,6 +56,12 @@ export class WorkerBootstrap {
         }
       : undefined;
 
+    if (proxyConfig) {
+      workerLogger.info(`[WorkerBootstrap] VFS Proxy ACTIVE: ${proxyConfig.server}`);
+    } else {
+      workerLogger.warn(`[WorkerBootstrap] VFS Proxy NOT configured, running direct connection`);
+    }
+
     const vfsConfig = createVfsConfig({
       headless: this.config.vfsHeadless,
       navigationTimeoutMs: this.config.vfsNavTimeoutMs,

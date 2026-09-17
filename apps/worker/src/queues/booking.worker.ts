@@ -31,6 +31,9 @@ export class BookingWorker {
 
   start(): void {
     this.redisClient = new Redis(this.config.redisUrl, getRedisOptions(this.config.redisUrl));
+    this.redisClient.on('error', (err) => {
+      console.warn('[BookingWorker Redis]', err.message);
+    });
 
     this.worker = new Worker(
       QUEUE_NAMES.BOOKING_EXECUTION,
@@ -43,6 +46,10 @@ export class BookingWorker {
         concurrency: 1,
       },
     );
+
+    this.worker.on('error', (err) => {
+      console.warn('[BookingWorker BullMQ]', err.message);
+    });
   }
 
   async processJob(job: Job<OrchestratorJobEnvelope<{ slot: SlotCandidate }>>): Promise<{ outcome: string }> {

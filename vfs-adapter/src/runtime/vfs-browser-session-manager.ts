@@ -2,6 +2,8 @@ import type { VfsAdapterConfig } from '../config/vfs-adapter-config.js';
 import { VfsBrowserFactory } from './vfs-browser.factory.js';
 import { VfsBrowserSession } from './vfs-browser-session.js';
 import { logSafeBrowserEvent } from '../security/safe-browser-log.js';
+import * as path from 'path';
+import * as fs from 'fs';
 
 export class VfsBrowserSessionManager {
   private readonly sessions = new Map<string, VfsBrowserSession>();
@@ -34,15 +36,27 @@ export class VfsBrowserSessionManager {
       return existing;
     }
 
-    logSafeBrowserEvent('Creating new VFS browser session', { caseId, workerId: this.workerId });
-    const browser = await this.factory.createBrowser();
-    const context = await this.factory.createContext(browser, storageStateJson);
-    const page = await context.newPage();
+    logSafeBrowserEvent('Creating new persistent VFS browser session', { caseId, workerId: this.workerId });
+    const candidates = [
+      path.resolve(process.cwd(), '.chrome-vfs-profile'),
+      path.resolve(process.cwd(), '..', '.chrome-vfs-profile'),
+      path.resolve(process.cwd(), '..', '..', '.chrome-vfs-profile'),
+    ];
+    let userDataDir: string = candidates[0] ?? path.resolve(process.cwd(), '.chrome-vfs-profile');
+    for (const d of candidates) {
+      if (fs.existsSync(d)) {
+        userDataDir = d;
+        break;
+      }
+    }
+
+    const context = await this.factory.createPersistentContext(userDataDir, storageStateJson);
+    const page = context.pages()[0] || await context.newPage();
 
     const session = new VfsBrowserSession(
       caseId,
       this.workerId,
-      browser,
+      context.browser() || (context as any),
       context,
       page,
       this.config,

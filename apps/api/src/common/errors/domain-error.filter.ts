@@ -58,7 +58,7 @@ export class DomainErrorFilter implements ExceptionFilter {
 
     // Unhandled internal server error
     const message = exception instanceof Error ? exception.message : 'Internal server error';
-    console.error('[Unhandled Exception]:', message);
+    console.error('[Unhandled Exception]:', message, exception instanceof Error ? exception.stack : exception);
 
     const errorBody: ApiErrorResponse = {
       error: {

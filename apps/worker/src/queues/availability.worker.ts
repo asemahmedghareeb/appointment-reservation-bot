@@ -18,6 +18,7 @@ import { Queue } from 'bullmq';
 export class AvailabilityWorker {
   private worker?: Worker;
   private redisClient?: Redis;
+  private queueRedisClient?: Redis;
   private bookingQueue?: Queue;
 
   constructor(
@@ -29,9 +30,19 @@ export class AvailabilityWorker {
   ) {}
 
   start(): void {
-    this.redisClient = new Redis(this.config.redisUrl, getRedisOptions(this.config.redisUrl));
+    const redisOpts = getRedisOptions(this.config.redisUrl);
+    this.redisClient = new Redis(this.config.redisUrl, redisOpts);
+    this.redisClient.on('error', (err) => {
+      console.warn('[AvailabilityWorker Worker Redis]', err.message);
+    });
+
+    this.queueRedisClient = new Redis(this.config.redisUrl, redisOpts);
+    this.queueRedisClient.on('error', (err) => {
+      console.warn('[AvailabilityWorker Queue Redis]', err.message);
+    });
+
     this.bookingQueue = new Queue(QUEUE_NAMES.BOOKING_EXECUTION, {
-      connection: this.redisClient,
+      connection: this.queueRedisClient,
       prefix: this.config.queuePrefix,
     });
 
@@ -46,6 +57,10 @@ export class AvailabilityWorker {
         concurrency: 2,
       },
     );
+
+    this.worker.on('error', (err) => {
+      console.warn('[AvailabilityWorker BullMQ]', err.message);
+    });
   }
 
   async processJob(job: Job<OrchestratorJobEnvelope>): Promise<{ outcome: string }> {
@@ -57,11 +72,13 @@ export class AvailabilityWorker {
       return { outcome: 'CASE_NOT_FOUND' };
     }
 
-    // Idempotency check: only process if status is READY, MONITORING, or WAITING_QUEUE
+    // Idempotency check: only process if status is READY, MONITORING, WAITING_QUEUE, or AUTHENTICATING
+    // AUTHENTICATING is allowed so that BullMQ retry attempts can re-run authenticate() after transient failures
     if (
       bookingCase.status !== BookingCaseStatus.READY &&
       bookingCase.status !== BookingCaseStatus.MONITORING &&
-      bookingCase.status !== BookingCaseStatus.WAITING_QUEUE
+      bookingCase.status !== BookingCaseStatus.WAITING_QUEUE &&
+      bookingCase.status !== BookingCaseStatus.AUTHENTICATING
     ) {
       return { outcome: 'SKIPPED_ALREADY_APPLIED' };
     }
@@ -69,23 +86,27 @@ export class AvailabilityWorker {
     const { context } = await this.contextLoader.loadContextAndApplicants(caseId, envelope.correlationId);
     const adapter = this.adapterRegistry.resolve(context.providerRoute.providerCode);
 
-    // If starting from READY, authenticate and inspect route first
-    if (bookingCase.status === BookingCaseStatus.READY) {
-      await this.repo.atomicConditionalTransition({
-        caseId,
-        fromStatus: BookingCaseStatus.READY,
-        toStatus: BookingCaseStatus.AUTHENTICATING,
-        actorType: StateActorType.WORKER,
-        actorId: this.config.workerId,
-        reason: 'Worker beginning provider authentication',
-      });
+    // If starting from READY or AUTHENTICATING (retry case), authenticate and inspect route first
+    if (bookingCase.status === BookingCaseStatus.READY || bookingCase.status === BookingCaseStatus.AUTHENTICATING) {
+      // Only transition from READY; if already AUTHENTICATING, just proceed
+      if (bookingCase.status === BookingCaseStatus.READY) {
+        await this.repo.atomicConditionalTransition({
+          caseId,
+          fromStatus: BookingCaseStatus.READY,
+          toStatus: BookingCaseStatus.AUTHENTICATING,
+          actorType: StateActorType.WORKER,
+          actorId: this.config.workerId,
+          reason: 'Worker beginning provider authentication',
+        });
 
-      // Create automation session
-      await this.sessionService.createSession({
-        bookingCaseId: caseId,
-        providerAccountId: context.providerAccountId,
-        providerCode: context.providerRoute.providerCode,
-      });
+        // Create automation session
+        await this.sessionService.createSession({
+          bookingCaseId: caseId,
+          providerAccountId: context.providerAccountId,
+          providerCode: context.providerRoute.providerCode,
+        });
+      }
+
 
       const authRes = await adapter.authenticate(context);
       if (authRes.kind === 'HUMAN_ACTION_REQUIRED') {
@@ -264,5 +285,6 @@ export class AvailabilityWorker {
     await this.worker?.close();
     await this.bookingQueue?.close();
     await this.redisClient?.quit();
+    await this.queueRedisClient?.quit();
   }
 }

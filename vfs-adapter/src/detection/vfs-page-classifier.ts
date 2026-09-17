@@ -67,7 +67,7 @@ export class VfsPageClassifier {
     // 7. Check Appointment Details
     const hasApptHeading = await page.locator(`h1:has-text("${VFS_SELECTORS.appointmentDetails.heading}"), h2:has-text("${VFS_SELECTORS.appointmentDetails.heading}")`).count() > 0;
     const hasCentreSelect = await page.locator(VFS_SELECTORS.appointmentDetails.centreSelect).count() > 0;
-    if (/\/appointment-details|\/route/i.test(url) || hasApptHeading || hasCentreSelect) {
+    if (/\/appointment-details|\/application-detail|\/route/i.test(url) || hasApptHeading || hasCentreSelect) {
       return VfsPageType.APPOINTMENT_DETAILS;
     }
 

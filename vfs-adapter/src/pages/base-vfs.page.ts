@@ -28,14 +28,14 @@ export abstract class BaseVfsPage {
     return this.humanDetector.detect(this.page);
   }
 
-  protected async waitAndClick(locator: Locator, timeoutMs: number = 10000): Promise<void> {
+  protected async waitAndClick(locator: Locator, timeoutMs: number = 30000): Promise<void> {
     await locator.waitFor({ state: 'visible', timeout: timeoutMs });
     // Wait until enabled if button
     await locator.scrollIntoViewIfNeeded().catch(() => {});
     await locator.click();
   }
 
-  protected async waitAndFill(locator: Locator, text: string, timeoutMs: number = 10000): Promise<void> {
+  protected async waitAndFill(locator: Locator, text: string, timeoutMs: number = 30000): Promise<void> {
     await locator.waitFor({ state: 'visible', timeout: timeoutMs });
     await locator.fill(text);
   }

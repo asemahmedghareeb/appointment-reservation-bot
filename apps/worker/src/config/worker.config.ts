@@ -62,6 +62,14 @@ export function getRedisOptions(redisUrl: string): RedisOptions {
   return {
     maxRetriesPerRequest: null,
     enableReadyCheck: false,
+    connectTimeout: 20000,
+    keepAlive: 30000,
+    family: 4,
+    retryStrategy: (times) => Math.min(times * 500, 3000),
+    reconnectOnError: (err) => {
+      const targetErrors = ['READONLY', 'ETIMEDOUT', 'ECONNRESET', 'Connection is closed'];
+      return targetErrors.some((t) => err.message.includes(t));
+    },
     tls: redisUrl.startsWith('rediss://') ? { rejectUnauthorized: false } : undefined,
   };
 }

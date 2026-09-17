@@ -28,6 +28,9 @@ export class SessionResumeWorker {
 
   start(): void {
     this.redisClient = new Redis(this.config.redisUrl, getRedisOptions(this.config.redisUrl));
+    this.redisClient.on('error', (err) => {
+      console.warn('[SessionResumeWorker Redis]', err.message);
+    });
 
     this.worker = new Worker(
       QUEUE_NAMES.SESSION_RESUME,
@@ -40,6 +43,10 @@ export class SessionResumeWorker {
         concurrency: 2,
       },
     );
+
+    this.worker.on('error', (err) => {
+      console.warn('[SessionResumeWorker BullMQ]', err.message);
+    });
   }
 
   async processJob(job: Job<OrchestratorJobEnvelope>): Promise<{ outcome: string }> {

@@ -91,6 +91,9 @@ export class WorkerRepository {
       });
 
       return true;
+    }, {
+      maxWait: 15000,
+      timeout: 20000,
     });
   }
 

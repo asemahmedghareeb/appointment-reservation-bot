@@ -32,6 +32,8 @@ import { ConfirmationPage } from './pages/confirmation.page.js';
 import { mapRouteToSelection } from './mapping/vfs-route.mapper.js';
 import { logSafeBrowserEvent } from './security/safe-browser-log.js';
 import { isOriginAllowed } from './security/safe-url.js';
+import * as fs from 'fs';
+import * as path from 'path';
 
 export class VfsProviderAdapter implements VisaProviderAdapter {
   readonly adapterId = 'vfs-global';
@@ -89,33 +91,94 @@ export class VfsProviderAdapter implements VisaProviderAdapter {
       };
     }
 
-    const session = await this.sessionManager.getOrCreateSession(context.caseId);
+    let savedStorageState: string | undefined = undefined;
+    try {
+      const candidates = [
+        path.resolve(process.cwd(), '.vfs-session.json'),
+        path.resolve(process.cwd(), '..', '.vfs-session.json'),
+        path.resolve(process.cwd(), '..', '..', '.vfs-session.json'),
+      ];
+      for (const p of candidates) {
+        if (fs.existsSync(p)) {
+          savedStorageState = fs.readFileSync(p, 'utf-8');
+          logSafeBrowserEvent('Loaded saved VFS session from file', { caseId: context.caseId, path: p });
+          break;
+        }
+      }
+    } catch {}
+
+    const session = await this.sessionManager.getOrCreateSession(context.caseId, savedStorageState);
+
+    if (savedStorageState) {
+      try {
+        const parsed = JSON.parse(savedStorageState);
+        if (parsed.sessionStorage) {
+          await session.page.addInitScript((ss) => {
+            if (ss) {
+              for (const [k, v] of Object.entries(ss)) {
+                try {
+                  sessionStorage.setItem(k, v as string);
+                } catch {}
+              }
+            }
+          }, parsed.sessionStorage);
+        }
+      } catch {}
+    }
 
     try {
       const authUrl = routeProfile.entryUrl.includes('/application-detail')
         ? routeProfile.entryUrl.replace('/application-detail', '/login')
         : routeProfile.entryUrl;
 
-      await session.navigate(authUrl);
-
-      // Check human challenge before touching credentials
-      const preChallenge = await this.humanDetector.detect(session.page);
-      if (preChallenge.detected) {
-        return {
-          kind: 'HUMAN_ACTION_REQUIRED',
-          action: preChallenge.actionType ?? HumanActionType.CAPTCHA,
-          resumeToStatus: BookingCaseStatus.AUTHENTICATING,
-          safeMessage: 'Human challenge detected on login entry page.',
-          checkpoint: {
-            pageType: VfsPageType.LOGIN,
-            currentPath: session.getSafeCurrentPath(),
-          },
-        };
+      // 1. Warm up session by visiting destination country landing page first
+      // This initializes VFS Angular state and session cookies so /login or /dashboard doesn't bounce to Session Expired
+      const landingUrl = authUrl.replace(/\/login.*$/, '');
+      if (landingUrl !== authUrl) {
+        logSafeBrowserEvent('Warming up session via landing page', { caseId: context.caseId, landingUrl });
+        await session.navigate(landingUrl).catch(() => {});
+        await session.page.waitForTimeout(3000);
       }
 
-      // Perform login
+      // 2. Navigate naturally to authUrl (the official entry/login endpoint)
+      logSafeBrowserEvent('Navigating to auth entry URL', { caseId: context.caseId, authUrl });
+      await session.navigate(authUrl);
+      await session.page.waitForTimeout(4000);
+
+      // 3. If we have a saved session, check if Angular automatically navigated to dashboard
+      if (savedStorageState) {
+        const isRealDashboard = !session.page.url().includes('page-not-found') &&
+          (session.page.url().includes('/dashboard') || session.page.url().includes('/application-detail')) &&
+          await session.page.locator('button:has-text("Start New Booking"), a:has-text("Start New Booking")').isVisible().catch(() => false);
+
+        if (isRealDashboard) {
+          logSafeBrowserEvent('Bypassed login entirely using active saved session!', { caseId: context.caseId });
+          return {
+            kind: 'SUCCESS',
+            data: {
+              authenticatedAt: new Date().toISOString(),
+              sessionId: session.caseId,
+            },
+          };
+        }
+
+        logSafeBrowserEvent('Saved session did not auto-enter dashboard, proceeding with standard login form fill', {
+          caseId: context.caseId,
+          currentUrl: session.page.url(),
+        });
+      }
+      await session.navigate(authUrl);
+
+      // 3. Delegate cookie acceptance, session recovery and credentials fill to LoginPage
       const loginPage = new LoginPage(session.page);
       await loginPage.login(credentials);
+
+      // Persist updated session
+      try {
+        const freshState = await session.context.storageState();
+        fs.writeFileSync(path.resolve(process.cwd(), '.vfs-session.json'), JSON.stringify(freshState, null, 2), 'utf-8');
+        logSafeBrowserEvent('Saved fresh VFS session to file', { caseId: context.caseId });
+      } catch {}
 
       // Check post-login human challenge
       const postChallenge = await this.humanDetector.detect(session.page);
@@ -140,7 +203,12 @@ export class VfsProviderAdapter implements VisaProviderAdapter {
         },
       };
     } catch (err: any) {
-      logSafeBrowserEvent('Authentication error', { caseId: context.caseId, message: err.message });
+      logSafeBrowserEvent('Authentication error - FULL DETAILS', { 
+        caseId: context.caseId, 
+        message: err?.message, 
+        stack: err?.stack?.split('\n').slice(0, 5).join(' | '),
+        errorType: err?.constructor?.name,
+      });
       try {
         const challengeOnErr = await this.humanDetector.detect(session.page);
         if (challengeOnErr.detected) {

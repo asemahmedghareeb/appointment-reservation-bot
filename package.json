@@ -13,7 +13,8 @@
     "db:validate": "pnpm --filter @visaflow/database prisma:validate",
     "db:migrate": "pnpm --filter @visaflow/database prisma:migrate",
     "db:seed": "pnpm --filter @visaflow/database prisma:seed",
-    "infra:check": "node scripts/check-cloud-infra.mjs"
+    "infra:check": "node scripts/check-cloud-infra.mjs",
+    "save-session": "node --env-file=.env scripts/save-vfs-session.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.13.9",
