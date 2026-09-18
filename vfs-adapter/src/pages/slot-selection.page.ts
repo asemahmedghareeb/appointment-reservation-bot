@@ -131,6 +131,7 @@ export class SlotSelectionPage extends BaseVfsPage {
       ).first();
       if (await continueBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
         await this.waitAndClick(continueBtn).catch(() => {});
+        await this.page.waitForURL((url) => !url.pathname.endsWith('/slot-selection'), { timeout: 5000 }).catch(() => {});
       }
     }
 

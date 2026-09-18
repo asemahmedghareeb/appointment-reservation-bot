@@ -27,10 +27,14 @@ describe('VfsProviderAdapter Lifecycle (Synthetic Server)', { timeout: 20000 }, 
     serverUrl = await server.start();
   });
 
+  afterEach(async () => {
+    await sessionManager?.closeAll().catch(() => {});
+  });
+
   afterAll(async () => {
     await sessionManager?.closeAll().catch(() => {});
     await server?.stop().catch(() => {});
-  });
+  }, 30000);
 
   beforeEach(() => {
     server.setScenario('HAPPY_PATH');

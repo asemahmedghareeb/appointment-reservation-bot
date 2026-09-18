@@ -828,9 +828,6 @@ export class VfsProviderAdapter implements VisaProviderAdapter {
         }
       }
 
-      if (session.page.url().includes('payment')) {
-        await session.page.reload({ waitUntil: 'domcontentloaded', timeout: 5000 }).catch(() => {});
-      }
 
       const paymentPage = new PaymentPage(session.page);
       const paymentInfo = await paymentPage.getPaymentDetails();

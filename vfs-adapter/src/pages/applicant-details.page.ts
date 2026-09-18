@@ -12,6 +12,13 @@ export class ApplicantDetailsPage extends BaseVfsPage {
   async addApplicants(applicants: ProviderApplicantInput[]): Promise<void> {
     this.log('Adding applicants to booking', { count: applicants.length });
 
+    const currentUrl = this.page.url();
+    const isPastApplicantStep = currentUrl.includes('slot-selection') || currentUrl.includes('book-appointment') || currentUrl.includes('services') || currentUrl.includes('review') || currentUrl.includes('payment');
+    if (isPastApplicantStep) {
+      this.log('Already past applicant details step, skipping form entry.');
+      return;
+    }
+
     // Guard: if already on Your Details Summary, do not re-enter details
     const isAlreadySummary = await this.page.locator(
       'h1:has-text("Your Details Summary"), button:has-text("Add another applicant")'
@@ -23,6 +30,16 @@ export class ApplicantDetailsPage extends BaseVfsPage {
       return;
     }
 
+    // Check if form is present
+    const hasForm = await this.page.locator(
+      '#firstName, #mat-input-3, input[placeholder*="first name" i], input[formcontrolname="firstName"]'
+    ).first().isVisible({ timeout: 2000 }).catch(() => false);
+
+    if (!hasForm) {
+      this.log('Applicant details form inputs not found on current page, skipping form entry.');
+      return;
+    }
+
     for (let i = 0; i < applicants.length; i++) {
       const applicant = applicants[i]!;
       const mapped = mapToVfsApplicant(applicant);
@@ -30,26 +47,31 @@ export class ApplicantDetailsPage extends BaseVfsPage {
       this.log(`Entering details for applicant position ${i + 1}`, { name: `${mapped.firstName} ${mapped.lastName}` });
 
       // 1. First & Last Name
-      const fnLocator = this.page.locator('#mat-input-3, input[placeholder*="first name" i], input[formcontrolname="firstName"]').first();
-      const lnLocator = this.page.locator('#mat-input-4, input[placeholder*="last name" i], input[formcontrolname="lastName"]').first();
+      const fnLocator = this.page.locator('#mat-input-3, #firstName, input[name="firstName"], input[placeholder*="first name" i], input[formcontrolname="firstName"]').first();
+      const lnLocator = this.page.locator('#mat-input-4, #lastName, input[name="lastName"], input[placeholder*="last name" i], input[formcontrolname="lastName"]').first();
       await this.waitAndFill(fnLocator, mapped.firstName);
       await this.waitAndFill(lnLocator, mapped.lastName);
 
-      // 2. Gender (mat-select dropdown)
-      const genderSelect = this.page.locator('#mat-select-3, mat-select[formcontrolname*="gender" i], mat-select:has-text("Select")').first();
-      if (await genderSelect.isVisible({ timeout: 3000 }).catch(() => false)) {
-        await genderSelect.click();
-        await this.page.waitForTimeout(400);
-        const genderLabel = mapped.gender.toUpperCase() === 'FEMALE' ? 'Female' : 'Male';
-        const opt = this.page.locator(`mat-option:has-text("${genderLabel}"), mat-option:has-text("${mapped.gender}")`).first();
-        if (await opt.isVisible({ timeout: 2500 }).catch(() => false)) {
-          await opt.click();
+      // 2. Gender (select or mat-select dropdown)
+      const genderSelect = this.page.locator('#gender, #mat-select-3, mat-select[formcontrolname*="gender" i], select[name="gender"]').first();
+      if (await genderSelect.isVisible({ timeout: 2000 }).catch(() => false)) {
+        const tagName = await genderSelect.evaluate((el) => el.tagName.toLowerCase()).catch(() => '');
+        if (tagName === 'select') {
+          await genderSelect.selectOption(mapped.gender).catch(() => {});
+        } else {
+          await genderSelect.click();
+          await this.page.waitForTimeout(300);
+          const genderLabel = mapped.gender.toUpperCase() === 'FEMALE' ? 'Female' : 'Male';
+          const opt = this.page.locator(`mat-option:has-text("${genderLabel}"), mat-option:has-text("${mapped.gender}")`).first();
+          if (await opt.isVisible({ timeout: 2000 }).catch(() => false)) {
+            await opt.click();
+          }
         }
       }
 
-      // 3. Date of Birth (#dateOfBirth) - MUST NOT use generic placeholder selector to avoid collision with Passport Expiry
-      const dob = this.page.locator('#dateOfBirth, input[formcontrolname*="dateOfBirth" i]').first();
-      if (await dob.isVisible({ timeout: 3000 }).catch(() => false)) {
+      // 3. Date of Birth (#dateOfBirth)
+      const dob = this.page.locator('#dateOfBirth, input[name="dateOfBirth"], input[formcontrolname*="dateOfBirth" i]').first();
+      if (await dob.isVisible({ timeout: 2000 }).catch(() => false)) {
         await dob.click().catch(() => {});
         await dob.fill(mapped.dateOfBirth);
         await dob.dispatchEvent('input');
@@ -57,28 +79,37 @@ export class ApplicantDetailsPage extends BaseVfsPage {
         await this.page.keyboard.press('Tab').catch(() => {});
       }
 
-      // 4. Current Nationality (#mat-select-4)
-      const natSelect = this.page.locator('#mat-select-4, mat-select[formcontrolname*="nationality" i]').first();
+      // 4. Current Nationality (#nationality or #mat-select-4)
+      const natSelect = this.page.locator('#nationality, #mat-select-4, mat-select[formcontrolname*="nationality" i], select[name="nationality"]').first();
       if (await natSelect.isVisible({ timeout: 2000 }).catch(() => false)) {
-        await natSelect.click();
-        await this.page.waitForTimeout(400);
-        const egyptOpt = this.page.locator('mat-option:has-text("EGYPT"), mat-option:has-text("Egypt")').first();
-        if (await egyptOpt.isVisible({ timeout: 2000 }).catch(() => false)) {
-          await egyptOpt.click();
+        const tagName = await natSelect.evaluate((el) => el.tagName.toLowerCase()).catch(() => '');
+        if (tagName === 'select') {
+          await natSelect.selectOption(mapped.nationality).catch(() => {});
+        } else if (tagName === 'input') {
+          await natSelect.fill(mapped.nationality).catch(() => {});
+          await natSelect.dispatchEvent('input').catch(() => {});
+          await natSelect.dispatchEvent('change').catch(() => {});
+        } else {
+          await natSelect.click();
+          await this.page.waitForTimeout(300);
+          const egyptOpt = this.page.locator('mat-option:has-text("EGYPT"), mat-option:has-text("Egypt")').first();
+          if (await egyptOpt.isVisible({ timeout: 2000 }).catch(() => false)) {
+            await egyptOpt.click();
+          }
         }
       }
 
-      // 5. Passport Number (#mat-input-5)
-      const pass = this.page.locator('#mat-input-5, input[placeholder="Enter passport number"], input[formcontrolname*="passportNumber" i]').first();
-      if (await pass.isVisible({ timeout: 3000 }).catch(() => false)) {
+      // 5. Passport Number (#mat-input-5, #passportNumber)
+      const pass = this.page.locator('#mat-input-5, #passportNumber, input[name="passportNumber"], input[placeholder="Enter passport number"], input[formcontrolname*="passportNumber" i]').first();
+      if (await pass.isVisible({ timeout: 2000 }).catch(() => false)) {
         await pass.fill(mapped.passportNumber);
         await pass.dispatchEvent('input');
         await pass.dispatchEvent('change');
       }
 
-      // 6. Passport Expiry Date (#passportExpirtyDate - VFS has typo with 'rt')
-      const passExp = this.page.locator('#passportExpirtyDate, #passportExpiryDate, input[formcontrolname*="passportExpir" i]').first();
-      if (await passExp.isVisible({ timeout: 3000 }).catch(() => false)) {
+      // 6. Passport Expiry Date (#passportExpirtyDate, #passportExpiry)
+      const passExp = this.page.locator('#passportExpirtyDate, #passportExpiryDate, #passportExpiry, input[name="passportExpiry"], input[formcontrolname*="passportExpir" i]').first();
+      if (await passExp.isVisible({ timeout: 2000 }).catch(() => false)) {
         await passExp.click().catch(() => {});
         await passExp.fill(mapped.passportExpiry);
         await passExp.dispatchEvent('input');
@@ -86,17 +117,17 @@ export class ApplicantDetailsPage extends BaseVfsPage {
         await this.page.keyboard.press('Tab').catch(() => {});
       }
 
-      // 7. Phone Country Code (#mat-input-6) & Number (#mat-input-7)
+      // 7. Phone Country Code & Number
       const pCode = this.page.locator('#mat-input-6, input[placeholder="44"], input[formcontrolname*="phoneCode" i]').first();
-      if (await pCode.isVisible({ timeout: 2000 }).catch(() => false)) {
+      if (await pCode.isVisible({ timeout: 1500 }).catch(() => false)) {
         const cleanCode = (mapped.phoneCountryCode || '20').replace(/^\+/, '');
         await pCode.fill(cleanCode);
         await pCode.dispatchEvent('input');
         await pCode.dispatchEvent('change');
       }
 
-      const pNum = this.page.locator('#mat-input-7, input[placeholder="012345648382"], input[formcontrolname*="contactNumber" i]').first();
-      if (await pNum.isVisible({ timeout: 3000 }).catch(() => false)) {
+      const pNum = this.page.locator('#mat-input-7, #contactNumber, input[name="contactNumber"], input[placeholder="012345648382"], input[formcontrolname*="contactNumber" i]').first();
+      if (await pNum.isVisible({ timeout: 2000 }).catch(() => false)) {
         let cleanPhone = mapped.phoneNumber || mapped.contactNumber;
         if (cleanPhone.startsWith('+20')) cleanPhone = cleanPhone.slice(3);
         else if (cleanPhone.startsWith('20') && cleanPhone.length > 10) cleanPhone = cleanPhone.slice(2);
@@ -105,9 +136,9 @@ export class ApplicantDetailsPage extends BaseVfsPage {
         await pNum.dispatchEvent('change');
       }
 
-      // 8. Email (#mat-input-8)
-      const email = this.page.locator('#mat-input-8, input[placeholder="Enter Email Address"], input[type="email"]').first();
-      if (await email.isVisible({ timeout: 3000 }).catch(() => false)) {
+      // 8. Email (#mat-input-8, #email)
+      const email = this.page.locator('#mat-input-8, #email, input[name="email"], input[placeholder="Enter Email Address"], input[type="email"]').first();
+      if (await email.isVisible({ timeout: 2000 }).catch(() => false)) {
         await email.fill(mapped.email);
         await email.dispatchEvent('input');
         await email.dispatchEvent('change');
@@ -167,6 +198,7 @@ export class ApplicantDetailsPage extends BaseVfsPage {
       const continueSubmit = this.page.locator('#continue-applicants, button[type="submit"]:has-text("Continue")').first();
       if (await continueSubmit.isVisible({ timeout: 1000 }).catch(() => false)) {
         await continueSubmit.click({ force: true }).catch(() => {});
+        await this.page.waitForURL((url) => !url.pathname.endsWith('/applicants'), { timeout: 5000 }).catch(() => {});
       }
 
       // Check if "Your Details Summary" screen appeared and proceed
