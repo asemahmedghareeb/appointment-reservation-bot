@@ -214,6 +214,32 @@ export class VfsProviderAdapter implements VisaProviderAdapter {
 
       if (!state.exists) return false;
 
+      // If Turnstile is not yet resolved, auto-click the Turnstile checkbox!
+      if (!state.cfReady && state.disabled) {
+        try {
+          const turnstileIframe = page.locator(
+            'iframe[src*="challenges.cloudflare.com"], iframe[title*="Cloudflare"], iframe[src*="turnstile"], div.cf-turnstile iframe'
+          ).first();
+
+          if (await turnstileIframe.isVisible({ timeout: 1500 }).catch(() => false)) {
+            const box = await turnstileIframe.boundingBox();
+            if (box && box.width > 0 && box.height > 0) {
+              logSafeBrowserEvent('Turnstile checkbox detected. Auto-clicking checkbox...', { caseId });
+              // Checkbox is at ~28px from left edge, vertically centered
+              await page.mouse.click(box.x + 28, box.y + (box.height / 2));
+              await page.waitForTimeout(1500);
+            }
+          }
+
+          const frame = page.frameLocator('iframe[src*="challenges.cloudflare.com"]').first();
+          const cb = frame.locator('input[type="checkbox"], .ctp-checkbox-label, #cf-stage label, #cf-stage').first();
+          if (await cb.isVisible({ timeout: 1000 }).catch(() => false)) {
+            await cb.click({ force: true }).catch(() => {});
+            await page.waitForTimeout(1500);
+          }
+        } catch {}
+      }
+
       if (state.isClickable && emailVal && passVal) {
         logSafeBrowserEvent('Auto-clicking Sign In button now that captcha and credentials are ready!', { caseId });
 
@@ -557,6 +583,40 @@ export class VfsProviderAdapter implements VisaProviderAdapter {
         await applicantPage.addApplicants(context.applicants);
         await session.page.waitForTimeout(2000);
       }
+
+      // If Save button is visible on your-details, click it to advance
+      const saveBtn = session.page.locator('button.btn-brand-orange:has-text("Save"), button:has-text("Save")').first();
+      if (session.page.url().includes('your-details') && (await saveBtn.isVisible({ timeout: 1500 }).catch(() => false))) {
+        logSafeBrowserEvent('CheckAvailability: Form is filled on Your Details page, clicking Save...', { caseId: context.caseId });
+        await saveBtn.scrollIntoViewIfNeeded().catch(() => {});
+        await saveBtn.click({ force: true }).catch(() => {});
+        await session.page.evaluate(() => {
+          const btn = Array.from(document.querySelectorAll('button')).find(b => b.innerText.trim() === 'Save');
+          if (btn) btn.click();
+        }).catch(() => {});
+        await session.page.waitForTimeout(3000);
+      }
+
+      // If on Your Details Summary, click Continue to advance to calendar
+      const summaryContinueBtn = session.page.locator('button:has-text("Continue"), button.btn-brand-orange:has-text("Continue")').first();
+      if (session.page.url().includes('your-details') && (await summaryContinueBtn.isVisible({ timeout: 2000 }).catch(() => false))) {
+        logSafeBrowserEvent('CheckAvailability: Detected Your Details Summary. Clicking Continue to advance to calendar...', { caseId: context.caseId });
+        await summaryContinueBtn.click({ force: true }).catch(() => {});
+        await session.page.evaluate(() => {
+          const btn = Array.from(document.querySelectorAll('button')).find(b => b.innerText.trim() === 'Continue');
+          if (btn) btn.click();
+        }).catch(() => {});
+        await session.page.waitForURL((url) => url.pathname.includes('book-appointment'), { timeout: 8000 }).catch(() => {});
+        await session.page.waitForTimeout(2000);
+      }
+
+      // Dismiss session timeout reminder modal if visible
+      try {
+        const okBtn = session.page.locator('button:has-text("Ok"), button:has-text("OK")').first();
+        if (await okBtn.isVisible({ timeout: 1000 }).catch(() => false)) {
+          await okBtn.click({ force: true }).catch(() => {});
+        }
+      } catch {}
 
       // If still on your-details, applicant form submission is in progress or needs retry
       if (session.page.url().includes('your-details')) {

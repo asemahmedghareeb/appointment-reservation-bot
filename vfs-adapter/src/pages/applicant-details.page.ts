@@ -130,30 +130,43 @@ export class ApplicantDetailsPage extends BaseVfsPage {
     }
 
     // 9. Click Save to submit the applicant details form
-    const submitBtn = this.page.locator('button:has-text("Save"), button:has-text("Continue"), button.mat-raised-button:has-text("Save")').first();
-    if (await submitBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
-      this.log('Submitting applicant details form to advance...');
-      
-      // Ensure button is not disabled
-      const isBtnDisabled = await submitBtn.isDisabled().catch(() => false);
-      if (!isBtnDisabled) {
-        await submitBtn.click({ force: true }).catch(() => {});
-      } else {
-        // Fallback DOM click
-        await this.page.evaluate(() => {
+    this.log('Locating Save button to submit applicant details...');
+    const saveBtnLocator = this.page.locator('button.btn-brand-orange:has-text("Save"), button:has-text("Save")').first();
+    if (await saveBtnLocator.isVisible({ timeout: 5000 }).catch(() => false)) {
+      this.log('Scrolling Save button into view and clicking...');
+      await saveBtnLocator.scrollIntoViewIfNeeded().catch(() => {});
+
+      // Wait up to 3s for button to be ready
+      for (let attempt = 0; attempt < 4; attempt++) {
+        const isReady = await this.page.evaluate(() => {
           const btn = Array.from(document.querySelectorAll('button')).find(b => b.innerText.trim() === 'Save');
-          if (btn && !btn.disabled) btn.click();
-        }).catch(() => {});
+          return btn && !btn.disabled && !btn.classList.contains('mat-button-disabled') && !btn.classList.contains('mat-mdc-button-disabled');
+        }).catch(() => false);
+        if (isReady) break;
+        await this.page.waitForTimeout(700);
       }
 
-      await this.page.waitForTimeout(3000);
+      await saveBtnLocator.click({ force: true }).catch(() => {});
+      await this.page.evaluate(() => {
+        const btn = Array.from(document.querySelectorAll('button')).find(b => b.innerText.trim() === 'Save');
+        if (btn) btn.click();
+      }).catch(() => {});
 
-      // If a secondary Continue button appears (e.g. on calendar/services step)
-      const nextContinue = this.page.locator('button:has-text("Continue"):visible, a:has-text("Continue"):visible').first();
-      if (await nextContinue.isVisible({ timeout: 3000 }).catch(() => false)) {
-        this.log('Clicking Continue to advance...');
-        await nextContinue.click({ force: true }).catch(() => {});
+      // Wait up to 12s for "Your Details Summary" screen and click Continue to advance to calendar
+      this.log('Waiting for Your Details Summary and Continue button...');
+      const summaryContinue = this.page.locator('button:has-text("Continue"), button.btn-brand-orange:has-text("Continue")').first();
+      try {
+        await summaryContinue.waitFor({ state: 'visible', timeout: 12000 });
+        this.log('Clicking Continue on Your Details Summary...');
+        await summaryContinue.click({ force: true }).catch(() => {});
+        await this.page.evaluate(() => {
+          const btn = Array.from(document.querySelectorAll('button')).find(b => b.innerText.trim() === 'Continue');
+          if (btn) btn.click();
+        }).catch(() => {});
+        await this.page.waitForURL((url) => url.pathname.includes('book-appointment'), { timeout: 10000 }).catch(() => {});
         await this.page.waitForTimeout(2000);
+      } catch (err: any) {
+        this.log('Continue button wait completed or timed out', { message: err.message });
       }
     }
   }
