@@ -20,6 +20,7 @@ export class AvailabilityWorker {
   private redisClient?: Redis;
   private queueRedisClient?: Redis;
   private bookingQueue?: Queue;
+  private availabilityQueue?: Queue;
 
   constructor(
     private readonly config: WorkerConfig,
@@ -42,6 +43,11 @@ export class AvailabilityWorker {
     });
 
     this.bookingQueue = new Queue(QUEUE_NAMES.BOOKING_EXECUTION, {
+      connection: this.queueRedisClient,
+      prefix: this.config.queuePrefix,
+    });
+
+    this.availabilityQueue = new Queue(QUEUE_NAMES.AVAILABILITY_CHECK, {
       connection: this.queueRedisClient,
       prefix: this.config.queuePrefix,
     });
@@ -282,7 +288,30 @@ export class AvailabilityWorker {
         return { outcome: 'GROUP_CAPACITY_MISMATCH' };
       }
 
-      return { outcome: 'NO_SLOT' };
+      if (availRes.data.outcome === 'NO_SLOT') {
+        if (this.availabilityQueue) {
+          const delayMs = 180_000; // 3 minutes interval
+          await this.availabilityQueue.add(
+            QUEUE_NAMES.AVAILABILITY_CHECK,
+            {
+              ...envelope,
+              cycleId: `cycle_${Date.now()}`,
+              idempotencyKey: `${caseId}:avail:${Date.now()}`,
+            },
+            { delay: delayMs, attempts: 3 },
+          );
+
+          await this.repo.recordActivityLog({
+            bookingCaseId: caseId,
+            actorType: StateActorType.WORKER,
+            actorId: this.config.workerId,
+            eventType: 'MONITORING_CYCLE_SCHEDULED',
+            message: 'تم فحص المواعيد، لم تتوفر مواعيد شاغرة حالياً. سيتم إعادة الفحص تلقائياً بعد 3 دقائق',
+          }).catch(() => {});
+        }
+
+        return { outcome: 'NO_SLOT' };
+      }
     }
 
     return { outcome: 'AVAILABILITY_ERROR' };
@@ -371,6 +400,7 @@ export class AvailabilityWorker {
   async close(): Promise<void> {
     await this.worker?.close();
     await this.bookingQueue?.close();
+    await this.availabilityQueue?.close();
     await this.redisClient?.quit();
     await this.queueRedisClient?.quit();
   }
