@@ -13,6 +13,10 @@ export class SlotSelectionPage extends BaseVfsPage {
   async checkAvailability(requestedApplicants: number, centre?: string): Promise<AvailabilityResult> {
     this.log('Checking slot availability on selection page', { requestedApplicants, centre });
 
+    const currentUrl = this.page.url();
+    const isCalendarPage = currentUrl.includes('book-appointment') || currentUrl.includes('calendar') || currentUrl.includes('appointment-slot');
+    const hasCalendar = await this.page.locator('mat-calendar, .mat-calendar, .calendar, .appointment-calendar, app-slot-picker, .date-picker').first().isVisible({ timeout: 2000 }).catch(() => false);
+
     const noSlotLocator = this.page.locator(VFS_SELECTORS.availability.noSlotNotice);
     if (await noSlotLocator.count() > 0 && await noSlotLocator.first().isVisible().catch(() => false)) {
       return {
@@ -49,9 +53,19 @@ export class SlotSelectionPage extends BaseVfsPage {
         };
       }
 
+      // If we are on the calendar page and no slots or buckets found, it is truly NO_SLOT
+      if (isCalendarPage || hasCalendar) {
+        return {
+          kind: 'SUCCESS',
+          data: { outcome: 'NO_SLOT' },
+        };
+      }
+
+      // Otherwise, the page hasn't reached the calendar yet! Do not return false NO_SLOT!
       return {
-        kind: 'SUCCESS',
-        data: { outcome: 'NO_SLOT' },
+        kind: 'RETRYABLE_FAILURE',
+        code: 'VFS_CALENDAR_NOT_REACHED',
+        safeMessage: 'لم يتم الوصول إلى شاشة تقويم المواعيد بعد، جاري المتابعة.',
       };
     }
 

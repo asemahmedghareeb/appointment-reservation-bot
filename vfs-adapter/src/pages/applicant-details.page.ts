@@ -36,9 +36,10 @@ export class ApplicantDetailsPage extends BaseVfsPage {
         }
       }
 
-      // 3. Date of Birth (#dateOfBirth)
-      const dob = this.page.locator('#dateOfBirth, input[formcontrolname*="dateOfBirth" i], input[placeholder*="select the date" i]').first();
+      // 3. Date of Birth (#dateOfBirth) - MUST NOT use generic placeholder selector to avoid collision with Passport Expiry
+      const dob = this.page.locator('#dateOfBirth, input[formcontrolname*="dateOfBirth" i]').first();
       if (await dob.isVisible({ timeout: 3000 }).catch(() => false)) {
+        await dob.click().catch(() => {});
         await dob.fill(mapped.dateOfBirth);
         await dob.dispatchEvent('input');
         await dob.dispatchEvent('change');
@@ -64,9 +65,10 @@ export class ApplicantDetailsPage extends BaseVfsPage {
         await pass.dispatchEvent('change');
       }
 
-      // 6. Passport Expiry Date (#passportExpirtyDate)
-      const passExp = this.page.locator('#passportExpirtyDate, #passportExpiryDate, input[placeholder*="select the date" i]').first();
+      // 6. Passport Expiry Date (#passportExpirtyDate - VFS has typo with 'rt')
+      const passExp = this.page.locator('#passportExpirtyDate, #passportExpiryDate, input[formcontrolname*="passportExpir" i]').first();
       if (await passExp.isVisible({ timeout: 3000 }).catch(() => false)) {
+        await passExp.click().catch(() => {});
         await passExp.fill(mapped.passportExpiry);
         await passExp.dispatchEvent('input');
         await passExp.dispatchEvent('change');
@@ -100,7 +102,23 @@ export class ApplicantDetailsPage extends BaseVfsPage {
         await email.dispatchEvent('change');
       }
 
-      await this.page.waitForTimeout(500);
+      // Direct DOM validation check & fallback assignment to guarantee values are in place
+      await this.page.evaluate((data) => {
+        const dobEl = document.querySelector('#dateOfBirth') as HTMLInputElement | null;
+        if (dobEl && (!dobEl.value || dobEl.value !== data.dateOfBirth)) {
+          dobEl.value = data.dateOfBirth;
+          dobEl.dispatchEvent(new Event('input', { bubbles: true }));
+          dobEl.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        const expEl = (document.querySelector('#passportExpirtyDate') || document.querySelector('#passportExpiryDate')) as HTMLInputElement | null;
+        if (expEl && (!expEl.value || expEl.value !== data.passportExpiry)) {
+          expEl.value = data.passportExpiry;
+          expEl.dispatchEvent(new Event('input', { bubbles: true }));
+          expEl.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      }, { dateOfBirth: mapped.dateOfBirth, passportExpiry: mapped.passportExpiry }).catch(() => {});
+
+      await this.page.waitForTimeout(800);
 
       // If multiple applicants, click Save / Add Applicant
       const saveBtn = this.page.locator('button:has-text("Save"), button:has-text("Add Applicant")').first();
@@ -115,16 +133,26 @@ export class ApplicantDetailsPage extends BaseVfsPage {
     const submitBtn = this.page.locator('button:has-text("Save"), button:has-text("Continue"), button.mat-raised-button:has-text("Save")').first();
     if (await submitBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
       this.log('Submitting applicant details form to advance...');
-      await this.waitAndClick(submitBtn, 10000);
-      await this.page.waitForLoadState('domcontentloaded').catch(() => {});
+      
+      // Ensure button is not disabled
+      const isBtnDisabled = await submitBtn.isDisabled().catch(() => false);
+      if (!isBtnDisabled) {
+        await submitBtn.click({ force: true }).catch(() => {});
+      } else {
+        // Fallback DOM click
+        await this.page.evaluate(() => {
+          const btn = Array.from(document.querySelectorAll('button')).find(b => b.innerText.trim() === 'Save');
+          if (btn && !btn.disabled) btn.click();
+        }).catch(() => {});
+      }
+
       await this.page.waitForTimeout(3000);
 
       // If a secondary Continue button appears (e.g. on calendar/services step)
       const nextContinue = this.page.locator('button:has-text("Continue"):visible, a:has-text("Continue"):visible').first();
       if (await nextContinue.isVisible({ timeout: 3000 }).catch(() => false)) {
         this.log('Clicking Continue to advance...');
-        await this.waitAndClick(nextContinue, 8000);
-        await this.page.waitForLoadState('domcontentloaded').catch(() => {});
+        await nextContinue.click({ force: true }).catch(() => {});
         await this.page.waitForTimeout(2000);
       }
     }

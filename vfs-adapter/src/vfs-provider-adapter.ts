@@ -558,6 +558,16 @@ export class VfsProviderAdapter implements VisaProviderAdapter {
         await session.page.waitForTimeout(2000);
       }
 
+      // If still on your-details, applicant form submission is in progress or needs retry
+      if (session.page.url().includes('your-details')) {
+        logSafeBrowserEvent('CheckAvailability: Still on Your Details page, form has not advanced to calendar yet.', { caseId: context.caseId });
+        return {
+          kind: 'RETRYABLE_FAILURE',
+          code: 'VFS_STILL_ON_DETAILS',
+          safeMessage: 'لا تزال الصفحة عند شاشة بيانات المتقدم، جاري المتابعة لتقديمها.',
+        };
+      }
+
       const slotPage = new SlotSelectionPage(session.page);
       return await slotPage.checkAvailability(
         context.applicantCount,
