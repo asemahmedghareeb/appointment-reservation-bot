@@ -356,6 +356,14 @@ export class AvailabilityWorker {
       }
 
       try {
+        if (session.page && !session.page.isClosed()) {
+          const currentUrl = session.page.url();
+          if (currentUrl.includes('/login') && typeof (adapter as any).autoClickSignIn === 'function') {
+            const bookingCase = await this.repo.findCaseById(caseId).catch(() => null);
+            await (adapter as any).autoClickSignIn(session.page, caseId, bookingCase?.providerAccountId).catch(() => {});
+          }
+        }
+
         const isAuth = await adapter.isSessionAuthenticated(caseId);
         if (isAuth) {
           stopped = true;

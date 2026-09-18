@@ -304,18 +304,15 @@ export default function LocalizedCaseDetailPage() {
               <button
                 id="btn-case-action-start"
                 onClick={() => startAutomationMutation.mutate()}
-                disabled={!isSessionAuthenticated || startAutomationMutation.isPending}
-                className={isSessionAuthenticated ? 'btn-success' : 'btn-secondary'}
+                disabled={startAutomationMutation.isPending}
+                className="btn-success"
                 title={
-                  !isSessionAuthenticated
-                    ? locale === 'ar'
-                      ? 'قم بتسجيل الدخول إلى حساب VFS أولاً'
-                      : 'Please sign in to the VFS account first'
-                    : undefined
+                  locale === 'ar'
+                    ? 'بدء تشغيل البوت وحجز الموعد'
+                    : 'Start bot automation and reservation'
                 }
                 style={{
-                  opacity: !isSessionAuthenticated ? 0.6 : 1,
-                  cursor: !isSessionAuthenticated ? 'not-allowed' : 'pointer',
+                  cursor: startAutomationMutation.isPending ? 'not-allowed' : 'pointer',
                 }}
               >
                 <Play size={16} className="icon-directional" />
@@ -473,16 +470,18 @@ export default function LocalizedCaseDetailPage() {
               </div>
               <div>
                 <h3 style={{ fontSize: '1.05rem', fontWeight: 600, color: '#fde047', margin: 0 }}>
-                  {t('vfsLoginRequiredTitle')}
+                  {locale === 'ar' ? 'جاري تسجيل الدخول التلقائي إلى VFS...' : 'Automating VFS Login...'}
                 </h3>
                 <span style={{ fontSize: '0.85rem', color: '#fef08a' }}>
-                  {t('vfsLoginRequiredDesc')}
+                  {locale === 'ar'
+                    ? 'يقوم البوت بملء البيانات وحل كابتشا Turnstile والنقر على تسجيل الدخول تلقائياً، أو يمكنك النقر على بدء تشغيل البوت مباشرة.'
+                    : 'The bot is auto-filling credentials, solving Turnstile, and clicking Sign In automatically.'}
                 </span>
               </div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#fde047', fontSize: '0.85rem' }}>
               <RefreshCw size={15} className="spin-animation" />
-              <span>{locale === 'ar' ? 'بانتظار تسجيل الدخول في المتصفح...' : 'Waiting for login in browser...'}</span>
+              <span>{locale === 'ar' ? 'جاري التحقق وتسجيل الدخول تلقائياً...' : 'Auto-signing in...'}</span>
             </div>
           </div>
         )}

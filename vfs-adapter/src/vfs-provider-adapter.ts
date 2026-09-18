@@ -138,6 +138,18 @@ export class VfsProviderAdapter implements VisaProviderAdapter {
           if (await passInput.isVisible({ timeout: 2000 }).catch(() => false)) {
             await passInput.fill(credentials.password).catch(() => {});
           }
+          // Automatically wait for Turnstile and auto-click Sign In
+          logSafeBrowserEvent('Waiting for Cloudflare Turnstile and auto-clicking Sign In...', { caseId: context.caseId });
+          const startTime = Date.now();
+          while (Date.now() - startTime < 20_000) {
+            const clicked = await this.autoClickSignIn(session.page, context.caseId, context.providerAccountId);
+            if (clicked) {
+              logSafeBrowserEvent('Sign In clicked automatically during session preparation!', { caseId: context.caseId });
+              break;
+            }
+            if (!session.page.url().includes('/login')) break;
+            await new Promise((r) => setTimeout(r, 1000));
+          }
         }
       } catch (err: any) {
         logSafeBrowserEvent('Could not auto-fill credentials', { caseId: context.caseId, error: err.message });
@@ -145,6 +157,82 @@ export class VfsProviderAdapter implements VisaProviderAdapter {
     }
 
     return session;
+  }
+
+  /**
+   * Attempts to auto-fill credentials (if not already filled) and click the Sign In button
+   * once Cloudflare Turnstile verification passes.
+   */
+  async autoClickSignIn(page: any, caseId: string, providerAccountId?: string): Promise<boolean> {
+    if (!page || page.isClosed()) return false;
+    const url = page.url();
+    if (!url.includes('/login')) return false;
+
+    try {
+      const emailInput = page.locator('input[type="email"], input[formcontrolname="username"], #email, input[id*="mat-input"]').first();
+      const passInput = page.locator('input[type="password"], input[formcontrolname="password"], #password').first();
+
+      let emailVal = await emailInput.inputValue().catch(() => '');
+      let passVal = await passInput.inputValue().catch(() => '');
+
+      if ((!emailVal || !passVal) && providerAccountId) {
+        const creds = await this.credentialsProvider.getCredentials(providerAccountId).catch(() => null);
+        if (creds?.email && !emailVal) {
+          await emailInput.fill(creds.email).catch(() => {});
+          await emailInput.dispatchEvent('input').catch(() => {});
+          await emailInput.dispatchEvent('change').catch(() => {});
+        }
+        if (creds?.password && !passVal) {
+          await passInput.fill(creds.password).catch(() => {});
+          await passInput.dispatchEvent('input').catch(() => {});
+          await passInput.dispatchEvent('change').catch(() => {});
+        }
+        emailVal = await emailInput.inputValue().catch(() => '');
+        passVal = await passInput.inputValue().catch(() => '');
+      }
+
+      const state = await page.evaluate(() => {
+        const btn = document.querySelector(
+          'button[type="submit"], button.btn-brand-orange, button.mat-raised-button'
+        ) as HTMLButtonElement | null;
+        if (!btn) return { exists: false, isClickable: false };
+
+        const cfInput = document.querySelector('input[name="cf-turnstile-response"]') as HTMLInputElement | null;
+        const cfReady = Boolean(cfInput && cfInput.value && cfInput.value.length > 5);
+
+        const disabledAttr = btn.disabled || btn.hasAttribute('disabled') || btn.getAttribute('aria-disabled') === 'true';
+        const disabledClass = btn.classList.contains('mat-button-disabled') || btn.classList.contains('mat-mdc-button-disabled');
+        const notDisabled = !disabledAttr && !disabledClass;
+
+        return {
+          exists: true,
+          isClickable: notDisabled || cfReady,
+          disabled: disabledAttr || disabledClass,
+          cfReady,
+        };
+      }).catch(() => ({ exists: false, isClickable: false }));
+
+      if (!state.exists) return false;
+
+      if (state.isClickable && emailVal && passVal) {
+        logSafeBrowserEvent('Auto-clicking Sign In button now that captcha and credentials are ready!', { caseId });
+
+        const signInBtn = page.locator('button[type="submit"], button.btn-brand-orange, button:has-text("Sign In")').first();
+        await signInBtn.click({ force: true }).catch(() => {});
+
+        await page.evaluate(() => {
+          const btn = document.querySelector('button[type="submit"], button.btn-brand-orange') as HTMLButtonElement | null;
+          if (btn) btn.click();
+        }).catch(() => {});
+
+        await page.waitForTimeout(2500);
+        return true;
+      }
+    } catch (err: any) {
+      logSafeBrowserEvent('autoClickSignIn attempt failed', { caseId, error: err.message });
+    }
+
+    return false;
   }
 
   async authenticate(context: ProviderContext): Promise<AuthenticateResult> {
@@ -190,7 +278,7 @@ export class VfsProviderAdapter implements VisaProviderAdapter {
 
     const isTestServer = routeProfile.entryUrl.includes('127.0.0.1') || routeProfile.entryUrl.includes('localhost');
 
-    // 2. In live automation: wait for manual login in the opened browser
+    // 2. In live automation: wait for login (with auto-click) in the opened browser
     if (!isTestServer) {
       let session = existingSession;
       if (!session) {
@@ -199,7 +287,7 @@ export class VfsProviderAdapter implements VisaProviderAdapter {
 
       // Check if already authenticated
       if (await this.isSessionAuthenticated(context.caseId)) {
-        logSafeBrowserEvent('Manual login already verified! Continuing.', { caseId: context.caseId });
+        logSafeBrowserEvent('Login already verified! Continuing.', { caseId: context.caseId });
         return {
           kind: 'SUCCESS',
           data: {
@@ -209,14 +297,15 @@ export class VfsProviderAdapter implements VisaProviderAdapter {
         };
       }
 
-      // Auto-detect: allow operator up to 120s to complete login in the opened browser
-      logSafeBrowserEvent('Waiting for operator to complete login in the opened browser window...', { caseId: context.caseId });
+      // Auto-detect and auto-sign in
+      logSafeBrowserEvent('Monitoring login page to auto-submit credentials and detect authentication...', { caseId: context.caseId });
       const maxWaitMs = 120_000;
       const startTime = Date.now();
+      let lastClickAttempt = 0;
+
       while (Date.now() - startTime < maxWaitMs) {
-        await new Promise((resolve) => setTimeout(resolve, 2500));
         if (await this.isSessionAuthenticated(context.caseId)) {
-          logSafeBrowserEvent('Manual login detected successfully! Continuing automation.', { caseId: context.caseId });
+          logSafeBrowserEvent('Login detected successfully! Continuing automation flow.', { caseId: context.caseId });
           return {
             kind: 'SUCCESS',
             data: {
@@ -225,6 +314,17 @@ export class VfsProviderAdapter implements VisaProviderAdapter {
             },
           };
         }
+
+        // Auto-click Sign In if on /login page
+        try {
+          const currentUrl = session.page.url();
+          if (currentUrl.includes('/login') && Date.now() - lastClickAttempt > 3000) {
+            lastClickAttempt = Date.now();
+            await this.autoClickSignIn(session.page, context.caseId, context.providerAccountId);
+          }
+        } catch {}
+
+        await new Promise((resolve) => setTimeout(resolve, 1500));
       }
 
       return {

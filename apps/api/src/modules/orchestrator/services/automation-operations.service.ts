@@ -94,9 +94,6 @@ export class AutomationOperationsService {
       if (!isPrepared) {
         throw new AutomationSessionConflictError(caseId, { sessionId: existingActiveSession.id });
       }
-      if (checkpoint.authenticated !== true) {
-        throw new BadRequestException('VFS login is required before starting automation. Please log in to VFS first.');
-      }
       // Renew session TTL
       await prisma.automationSession.update({
         where: { id: existingActiveSession.id },

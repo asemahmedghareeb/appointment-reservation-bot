@@ -18,102 +18,92 @@ export class ApplicantDetailsPage extends BaseVfsPage {
 
       this.log(`Entering details for applicant position ${i + 1}`, { name: `${mapped.firstName} ${mapped.lastName}` });
 
-      const fnLocator = this.page.locator(VFS_SELECTORS.applicantDetails.firstName).first();
-      const lnLocator = this.page.locator(VFS_SELECTORS.applicantDetails.lastName).first();
-      const dobLocator = this.page.locator(VFS_SELECTORS.applicantDetails.dateOfBirth).first();
-      const natLocator = this.page.locator(VFS_SELECTORS.applicantDetails.nationality).first();
-      const passNumLocator = this.page.locator(VFS_SELECTORS.applicantDetails.passportNumber).first();
-      const passExpLocator = this.page.locator(VFS_SELECTORS.applicantDetails.passportExpiry).first();
-      const phoneLocator = this.page.locator(VFS_SELECTORS.applicantDetails.contactNumber).first();
-      const emailLocator = this.page.locator(VFS_SELECTORS.applicantDetails.email).first();
-
       // 1. First & Last Name
+      const fnLocator = this.page.locator('#mat-input-3, input[placeholder*="first name" i], input[formcontrolname="firstName"]').first();
+      const lnLocator = this.page.locator('#mat-input-4, input[placeholder*="last name" i], input[formcontrolname="lastName"]').first();
       await this.waitAndFill(fnLocator, mapped.firstName);
       await this.waitAndFill(lnLocator, mapped.lastName);
 
-      // 2. Gender (handles native select and Angular Material mat-select)
-      const genderSelect = this.page.locator(VFS_SELECTORS.applicantDetails.genderSelect).first();
-      if (await genderSelect.isVisible({ timeout: 4000 }).catch(() => false)) {
-        const tagName = await genderSelect.evaluate((el) => el.tagName.toLowerCase()).catch(() => '');
-        if (tagName === 'select') {
-          await genderSelect.selectOption({ label: mapped.gender }).catch(async () => {
-            await genderSelect.selectOption({ value: mapped.gender });
-          });
-        } else {
-          await this.waitAndClick(genderSelect);
-          await this.page.waitForTimeout(400);
-          const genderLabel = mapped.gender.toUpperCase() === 'FEMALE' ? 'Female' : 'Male';
-          const option = this.page
-            .locator(`mat-option:has-text("${genderLabel}"), [role="option"]:has-text("${genderLabel}"), mat-option:has-text("${mapped.gender}")`)
-            .first();
-          if (await option.isVisible({ timeout: 3000 }).catch(() => false)) {
-            await this.waitAndClick(option);
-          }
+      // 2. Gender (mat-select dropdown)
+      const genderSelect = this.page.locator('#mat-select-3, mat-select[formcontrolname*="gender" i], mat-select:has-text("Select")').first();
+      if (await genderSelect.isVisible({ timeout: 3000 }).catch(() => false)) {
+        await genderSelect.click();
+        await this.page.waitForTimeout(400);
+        const genderLabel = mapped.gender.toUpperCase() === 'FEMALE' ? 'Female' : 'Male';
+        const opt = this.page.locator(`mat-option:has-text("${genderLabel}"), mat-option:has-text("${mapped.gender}")`).first();
+        if (await opt.isVisible({ timeout: 2500 }).catch(() => false)) {
+          await opt.click();
         }
       }
 
-      // 3. Date of Birth
-      if (await dobLocator.isVisible({ timeout: 4000 }).catch(() => false)) {
-        await this.waitAndFill(dobLocator, mapped.dateOfBirth);
+      // 3. Date of Birth (#dateOfBirth)
+      const dob = this.page.locator('#dateOfBirth, input[formcontrolname*="dateOfBirth" i], input[placeholder*="select the date" i]').first();
+      if (await dob.isVisible({ timeout: 3000 }).catch(() => false)) {
+        await dob.fill(mapped.dateOfBirth);
+        await dob.dispatchEvent('input');
+        await dob.dispatchEvent('change');
         await this.page.keyboard.press('Tab').catch(() => {});
       }
 
-      // 4. Nationality (if present)
-      if (await natLocator.isVisible({ timeout: 2000 }).catch(() => false)) {
-        const natTagName = await natLocator.evaluate((el) => el.tagName.toLowerCase()).catch(() => '');
-        if (natTagName === 'select') {
-          await natLocator.selectOption({ label: mapped.nationality }).catch(async () => {
-            await natLocator.selectOption({ value: mapped.nationality });
-          });
-        } else if (natTagName === 'mat-select') {
-          await this.waitAndClick(natLocator);
-          await this.page.waitForTimeout(400);
-          const natOption = this.page
-            .locator(`mat-option:has-text("Egypt"), mat-option:has-text("${mapped.nationality}"), [role="option"]:has-text("Egypt")`)
-            .first();
-          if (await natOption.isVisible({ timeout: 3000 }).catch(() => false)) {
-            await this.waitAndClick(natOption);
-          }
-        } else {
-          await this.waitAndFill(natLocator, mapped.nationality);
+      // 4. Current Nationality (#mat-select-4)
+      const natSelect = this.page.locator('#mat-select-4, mat-select[formcontrolname*="nationality" i]').first();
+      if (await natSelect.isVisible({ timeout: 2000 }).catch(() => false)) {
+        await natSelect.click();
+        await this.page.waitForTimeout(400);
+        const egyptOpt = this.page.locator('mat-option:has-text("EGYPT"), mat-option:has-text("Egypt")').first();
+        if (await egyptOpt.isVisible({ timeout: 2000 }).catch(() => false)) {
+          await egyptOpt.click();
         }
       }
 
-      // 5. Passport Number & Expiry
-      await this.waitAndFill(passNumLocator, mapped.passportNumber);
-      if (await passExpLocator.isVisible({ timeout: 4000 }).catch(() => false)) {
-        await this.waitAndFill(passExpLocator, mapped.passportExpiry);
+      // 5. Passport Number (#mat-input-5)
+      const pass = this.page.locator('#mat-input-5, input[placeholder="Enter passport number"], input[formcontrolname*="passportNumber" i]').first();
+      if (await pass.isVisible({ timeout: 3000 }).catch(() => false)) {
+        await pass.fill(mapped.passportNumber);
+        await pass.dispatchEvent('input');
+        await pass.dispatchEvent('change');
+      }
+
+      // 6. Passport Expiry Date (#passportExpirtyDate)
+      const passExp = this.page.locator('#passportExpirtyDate, #passportExpiryDate, input[placeholder*="select the date" i]').first();
+      if (await passExp.isVisible({ timeout: 3000 }).catch(() => false)) {
+        await passExp.fill(mapped.passportExpiry);
+        await passExp.dispatchEvent('input');
+        await passExp.dispatchEvent('change');
         await this.page.keyboard.press('Tab').catch(() => {});
       }
 
-      // 6. Phone Country Code & Number
-      const phoneCodeLocator = this.page.locator(VFS_SELECTORS.applicantDetails.phoneCountryCode).first();
-      if (mapped.phoneCountryCode && (await phoneCodeLocator.isVisible({ timeout: 2000 }).catch(() => false))) {
-        const cleanCode = mapped.phoneCountryCode.replace(/^\+/, '');
-        await this.waitAndFill(phoneCodeLocator, cleanCode).catch(() => {});
+      // 7. Phone Country Code (#mat-input-6) & Number (#mat-input-7)
+      const pCode = this.page.locator('#mat-input-6, input[placeholder="44"], input[formcontrolname*="phoneCode" i]').first();
+      if (await pCode.isVisible({ timeout: 2000 }).catch(() => false)) {
+        const cleanCode = (mapped.phoneCountryCode || '20').replace(/^\+/, '');
+        await pCode.fill(cleanCode);
+        await pCode.dispatchEvent('input');
+        await pCode.dispatchEvent('change');
       }
 
-      if (mapped.contactNumber && (await phoneLocator.isVisible({ timeout: 4000 }).catch(() => false))) {
-        let cleanPhone = mapped.contactNumber;
-        if (mapped.phoneCountryCode && cleanPhone.startsWith(mapped.phoneCountryCode)) {
-          cleanPhone = cleanPhone.slice(mapped.phoneCountryCode.length);
-        } else if (cleanPhone.startsWith('+20')) {
-          cleanPhone = cleanPhone.slice(3);
-        } else if (cleanPhone.startsWith('20') && cleanPhone.length > 10) {
-          cleanPhone = cleanPhone.slice(2);
-        }
-        await this.waitAndFill(phoneLocator, cleanPhone);
+      const pNum = this.page.locator('#mat-input-7, input[placeholder="012345648382"], input[formcontrolname*="contactNumber" i]').first();
+      if (await pNum.isVisible({ timeout: 3000 }).catch(() => false)) {
+        let cleanPhone = mapped.phoneNumber || mapped.contactNumber;
+        if (cleanPhone.startsWith('+20')) cleanPhone = cleanPhone.slice(3);
+        else if (cleanPhone.startsWith('20') && cleanPhone.length > 10) cleanPhone = cleanPhone.slice(2);
+        await pNum.fill(cleanPhone);
+        await pNum.dispatchEvent('input');
+        await pNum.dispatchEvent('change');
       }
 
-      // 7. Email
-      if (mapped.email && (await emailLocator.isVisible({ timeout: 4000 }).catch(() => false))) {
-        await this.waitAndFill(emailLocator, mapped.email);
+      // 8. Email (#mat-input-8)
+      const email = this.page.locator('#mat-input-8, input[placeholder="Enter Email Address"], input[type="email"]').first();
+      if (await email.isVisible({ timeout: 3000 }).catch(() => false)) {
+        await email.fill(mapped.email);
+        await email.dispatchEvent('input');
+        await email.dispatchEvent('change');
       }
 
       await this.page.waitForTimeout(500);
 
       // If multiple applicants, click Save / Add Applicant
-      const saveBtn = this.page.locator(VFS_SELECTORS.applicantDetails.saveApplicantButton).first();
+      const saveBtn = this.page.locator('button:has-text("Save"), button:has-text("Add Applicant")').first();
       if (i < applicants.length - 1 && (await saveBtn.isVisible({ timeout: 3000 }).catch(() => false))) {
         this.log('Saving applicant to add next applicant...');
         await this.waitAndClick(saveBtn);
@@ -121,21 +111,18 @@ export class ApplicantDetailsPage extends BaseVfsPage {
       }
     }
 
-    // 8. Click Save or Continue to move to the Calendar step
-    const submitBtn = this.page
-      .locator('button:has-text("Save"), button:has-text("Continue"), button:has-text("Review Details"), button.mat-raised-button:has-text("Save"), button.mat-raised-button:has-text("Continue"), button[type="submit"]')
-      .first();
-
+    // 9. Click Save to submit the applicant details form
+    const submitBtn = this.page.locator('button:has-text("Save"), button:has-text("Continue"), button.mat-raised-button:has-text("Save")').first();
     if (await submitBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
-      this.log('Submitting applicant details form to advance to Calendar...');
+      this.log('Submitting applicant details form to advance...');
       await this.waitAndClick(submitBtn, 10000);
       await this.page.waitForLoadState('domcontentloaded').catch(() => {});
       await this.page.waitForTimeout(3000);
 
-      // If a secondary Continue button appears (e.g. after applicant saved in list)
+      // If a secondary Continue button appears (e.g. on calendar/services step)
       const nextContinue = this.page.locator('button:has-text("Continue"):visible, a:has-text("Continue"):visible').first();
-      if (await nextContinue.isVisible({ timeout: 4000 }).catch(() => false)) {
-        this.log('Clicking second Continue to advance to appointment schedule...');
+      if (await nextContinue.isVisible({ timeout: 3000 }).catch(() => false)) {
+        this.log('Clicking Continue to advance...');
         await this.waitAndClick(nextContinue, 8000);
         await this.page.waitForLoadState('domcontentloaded').catch(() => {});
         await this.page.waitForTimeout(2000);
