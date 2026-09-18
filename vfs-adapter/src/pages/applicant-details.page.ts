@@ -12,6 +12,17 @@ export class ApplicantDetailsPage extends BaseVfsPage {
   async addApplicants(applicants: ProviderApplicantInput[]): Promise<void> {
     this.log('Adding applicants to booking', { count: applicants.length });
 
+    // Guard: if already on Your Details Summary, do not re-enter details
+    const isAlreadySummary = await this.page.locator(
+      'h1:has-text("Your Details Summary"), button:has-text("Add another applicant")'
+    ).first().isVisible({ timeout: 1500 }).catch(() => false);
+
+    if (isAlreadySummary) {
+      this.log('Already on Your Details Summary screen, handling summary directly...');
+      await this.handleSummaryPage(applicants.length);
+      return;
+    }
+
     for (let i = 0; i < applicants.length; i++) {
       const applicant = applicants[i]!;
       const mapped = mapToVfsApplicant(applicant);
@@ -120,7 +131,7 @@ export class ApplicantDetailsPage extends BaseVfsPage {
 
       await this.page.waitForTimeout(800);
 
-      // If multiple applicants, click Save / Add Applicant
+      // If multiple applicants, click Save to add next applicant
       const saveBtn = this.page.locator('button:has-text("Save"), button:has-text("Add Applicant")').first();
       if (i < applicants.length - 1 && (await saveBtn.isVisible({ timeout: 3000 }).catch(() => false))) {
         this.log('Saving applicant to add next applicant...');
@@ -152,22 +163,49 @@ export class ApplicantDetailsPage extends BaseVfsPage {
         if (btn) btn.click();
       }).catch(() => {});
 
-      // Wait up to 12s for "Your Details Summary" screen and click Continue to advance to calendar
-      this.log('Waiting for Your Details Summary and Continue button...');
-      const summaryContinue = this.page.locator('button:has-text("Continue"), button.btn-brand-orange:has-text("Continue")').first();
-      try {
-        await summaryContinue.waitFor({ state: 'visible', timeout: 12000 });
-        this.log('Clicking Continue on Your Details Summary...');
-        await summaryContinue.click({ force: true }).catch(() => {});
-        await this.page.evaluate(() => {
-          const btn = Array.from(document.querySelectorAll('button')).find(b => b.innerText.trim() === 'Continue');
-          if (btn) btn.click();
-        }).catch(() => {});
-        await this.page.waitForURL((url) => url.pathname.includes('book-appointment'), { timeout: 10000 }).catch(() => {});
+      // Wait for "Your Details Summary" screen and proceed
+      await this.page.waitForTimeout(2000);
+      await this.handleSummaryPage(applicants.length);
+    }
+  }
+
+  async handleSummaryPage(expectedCount: number = 1): Promise<void> {
+    this.log('Handling Your Details Summary page', { expectedCount });
+
+    // 1. Remove duplicate/excess applicants if present
+    const getTrashButtons = () => this.page.locator('button.fa-trash-can, button .fa-trash-can, .fa-trash-can');
+    let trashCount = await getTrashButtons().count();
+
+    while (trashCount > expectedCount) {
+      this.log(`Detected ${trashCount} applicants on summary but expected ${expectedCount}. Removing excess applicant...`);
+      const lastTrash = getTrashButtons().last();
+      await lastTrash.click({ force: true }).catch(() => {});
+      await this.page.waitForTimeout(800);
+
+      const confirmBtn = this.page.locator('button:has-text("Yes, Remove"), button:has-text("Remove")').first();
+      if (await confirmBtn.isVisible({ timeout: 4000 }).catch(() => false)) {
+        await confirmBtn.click({ force: true }).catch(() => {});
         await this.page.waitForTimeout(2000);
-      } catch (err: any) {
-        this.log('Continue button wait completed or timed out', { message: err.message });
       }
+      trashCount = await getTrashButtons().count();
+    }
+
+    // 2. Click Continue to advance to Step 3: Book Appointment (Calendar)
+    this.log('Locating Continue button on Your Details Summary...');
+    const summaryContinue = this.page.locator('button.btn-brand-orange:has-text("Continue"), button:has-text("Continue")').first();
+    try {
+      await summaryContinue.waitFor({ state: 'visible', timeout: 12000 });
+      this.log('Clicking Continue on Your Details Summary to advance to Book Appointment...');
+      await summaryContinue.scrollIntoViewIfNeeded().catch(() => {});
+      await summaryContinue.click({ force: true }).catch(() => {});
+      await this.page.evaluate(() => {
+        const btn = Array.from(document.querySelectorAll('button')).find(b => b.innerText.trim() === 'Continue');
+        if (btn) btn.click();
+      }).catch(() => {});
+      await this.page.waitForURL((url) => url.pathname.includes('book-appointment'), { timeout: 12000 }).catch(() => {});
+      await this.page.waitForTimeout(2000);
+    } catch (err: any) {
+      this.log('Continue button handling completed or timed out', { message: err.message });
     }
   }
 }
