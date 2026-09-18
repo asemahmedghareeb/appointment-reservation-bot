@@ -85,6 +85,8 @@ export class ProviderContextLoaderService {
     });
 
 
+    context.applicants = applicants;
+
     return {
       bookingCase,
       context,

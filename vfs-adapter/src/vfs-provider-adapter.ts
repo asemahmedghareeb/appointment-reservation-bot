@@ -362,6 +362,18 @@ export class VfsProviderAdapter implements VisaProviderAdapter {
       const apptPage = new AppointmentDetailsPage(session.page);
       await apptPage.selectRouteCriteria(criteria);
 
+      // In VFS portals where Applicant Details (Your Details) follows immediately after criteria selection:
+      const isApplicantStep = await session.page.locator(
+        'input[formcontrolname*="passport" i], input[placeholder*="first name" i], h1:has-text("Your Details"), h2:has-text("Your Details"), div:has-text("Your Details")'
+      ).first().isVisible({ timeout: 4000 }).catch(() => false);
+
+      if (isApplicantStep && context.applicants && context.applicants.length > 0) {
+        logSafeBrowserEvent('Route criteria advanced to Your Details. Auto-filling applicant details...', { caseId: context.caseId });
+        const applicantPage = new ApplicantDetailsPage(session.page);
+        await applicantPage.addApplicants(context.applicants);
+        await session.page.waitForTimeout(2000);
+      }
+
       return {
         kind: 'SUCCESS',
         data: {
@@ -432,6 +444,18 @@ export class VfsProviderAdapter implements VisaProviderAdapter {
             maximumAvailableApplicants: capabilities.maxApplicants,
           },
         };
+      }
+
+      // Ensure that if still on Your Details page, fill applicants to reach the Calendar
+      const isApplicantStep = await session.page.locator(
+        'input[formcontrolname*="passport" i], input[placeholder*="first name" i], h1:has-text("Your Details"), h2:has-text("Your Details"), div:has-text("Your Details")'
+      ).first().isVisible({ timeout: 2500 }).catch(() => false);
+
+      if (isApplicantStep && context.applicants && context.applicants.length > 0) {
+        logSafeBrowserEvent('CheckAvailability: detected Your Details page, auto-filling applicants to reach calendar...', { caseId: context.caseId });
+        const applicantPage = new ApplicantDetailsPage(session.page);
+        await applicantPage.addApplicants(context.applicants);
+        await session.page.waitForTimeout(2000);
       }
 
       const slotPage = new SlotSelectionPage(session.page);

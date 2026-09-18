@@ -1,4 +1,5 @@
 import type { BookingMode, ProviderCode } from '@visaflow/shared-types';
+import type { ProviderApplicantInput } from '../types/provider-applicant-input.js';
 
 export interface ProviderContext {
   caseId: string;
@@ -29,4 +30,5 @@ export interface ProviderContext {
   };
   applicantCount: number;
   providerAccountId?: string | undefined;
+  applicants?: ProviderApplicantInput[] | undefined;
 }
