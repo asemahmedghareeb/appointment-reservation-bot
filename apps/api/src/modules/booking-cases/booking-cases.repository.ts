@@ -28,6 +28,8 @@ export type FullBookingCase = Prisma.BookingCaseGetPayload<{
   include: typeof bookingCaseInclude;
 }>;
 
+const TX_OPTIONS = { maxWait: 15000, timeout: 30000 };
+
 @Injectable()
 export class BookingCasesRepository {
   async create(data: Prisma.BookingCaseCreateInput): Promise<FullBookingCase> {
@@ -108,7 +110,7 @@ export class BookingCasesRepository {
         });
 
         return tx.bookingApplicant.create({ data });
-      });
+      }, TX_OPTIONS);
     }
 
     return prisma.bookingApplicant.create({ data });
@@ -127,7 +129,7 @@ export class BookingCasesRepository {
         where: { id: targetBookingApplicantId },
         data: { isPrimary: true },
       });
-    });
+    }, TX_OPTIONS);
   }
 
   async reorderApplicants(
@@ -151,7 +153,7 @@ export class BookingCasesRepository {
           data: { position: item.position },
         });
       }
-    });
+    }, TX_OPTIONS);
   }
 
   async removeApplicant(bookingApplicantId: string): Promise<BookingApplicant> {
@@ -197,7 +199,7 @@ export class BookingCasesRepository {
       });
 
       return updatedCase;
-    });
+    }, TX_OPTIONS);
   }
 
   async delete(id: string): Promise<void> {

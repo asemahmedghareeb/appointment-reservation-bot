@@ -15,15 +15,24 @@ export class DomainErrorFilter implements ExceptionFilter {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
 
-    if (exception instanceof DomainError) {
+    // Handle DomainError (both instanceof and duck-typed)
+    const isDomainError =
+      exception instanceof DomainError ||
+      (typeof exception === 'object' &&
+        exception !== null &&
+        'code' in exception &&
+        'httpStatus' in exception);
+
+    if (isDomainError) {
+      const err = exception as any;
       const errorBody: ApiErrorResponse = {
         error: {
-          code: exception.code,
-          message: exception.message,
-          ...(exception.details ? { details: exception.details } : {}),
+          code: err.code,
+          message: err.message,
+          ...(err.details ? { details: err.details } : {}),
         },
       };
-      response.status(exception.httpStatus).json(errorBody);
+      response.status(err.httpStatus || 400).json(errorBody);
       return;
     }
 
@@ -60,10 +69,12 @@ export class DomainErrorFilter implements ExceptionFilter {
     const message = exception instanceof Error ? exception.message : 'Internal server error';
     console.error('[Unhandled Exception]:', message, exception instanceof Error ? exception.stack : exception);
 
+    const isDev = process.env.NODE_ENV !== 'production';
     const errorBody: ApiErrorResponse = {
       error: {
         code: 'INTERNAL_SERVER_ERROR',
-        message: 'An unexpected internal error occurred.',
+        message: isDev ? message : 'An unexpected internal error occurred.',
+        ...(isDev && exception instanceof Error ? { details: { stack: exception.stack } } : {}),
       },
     };
 

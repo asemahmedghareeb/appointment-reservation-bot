@@ -68,6 +68,9 @@ export class WorkerBootstrap {
       actionTimeoutMs: this.config.vfsActionTimeoutMs,
       allowedOrigins: this.config.vfsAllowedOrigins,
       sessionTtlMinutes: this.config.sessionTtlMinutes,
+      useCdp: this.config.vfsUseCdp,
+      cdpPort: this.config.vfsCdpPort,
+      cdpUrl: this.config.vfsCdpUrl,
       ...(proxyConfig ? { proxy: proxyConfig } : {}),
     });
 

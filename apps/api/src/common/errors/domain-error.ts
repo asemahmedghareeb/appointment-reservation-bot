@@ -12,7 +12,8 @@ export class DomainError extends Error {
     details?: Record<string, unknown>,
   ) {
     super(message);
-    this.name = 'DomainError';
+    Object.setPrototypeOf(this, new.target.prototype);
+    this.name = this.constructor.name || 'DomainError';
     this.code = code;
     this.httpStatus = httpStatus;
     if (details !== undefined) {

@@ -4,6 +4,10 @@ export interface VfsAdapterConfig {
   actionTimeoutMs: number;
   allowedOrigins: string[];
   sessionTtlMinutes: number;
+  useCdp?: boolean | undefined;
+  cdpPort?: number | undefined;
+  cdpUrl?: string | undefined;
+  chromePath?: string | undefined;
   proxy?: {
     server: string;
     bypass?: string;
@@ -18,6 +22,8 @@ export const DEFAULT_VFS_CONFIG: VfsAdapterConfig = {
   actionTimeoutMs: 15000,
   allowedOrigins: ['https://visa.vfsglobal.com'],
   sessionTtlMinutes: 30,
+  useCdp: true,
+  cdpPort: 9222,
 };
 
 export function createVfsConfig(overrides?: Partial<VfsAdapterConfig>): VfsAdapterConfig {
@@ -25,5 +31,7 @@ export function createVfsConfig(overrides?: Partial<VfsAdapterConfig>): VfsAdapt
     ...DEFAULT_VFS_CONFIG,
     ...overrides,
     allowedOrigins: overrides?.allowedOrigins ?? DEFAULT_VFS_CONFIG.allowedOrigins,
+    useCdp: overrides?.useCdp ?? (process.env.VFS_USE_CDP !== 'false'),
+    cdpPort: overrides?.cdpPort ?? (Number(process.env.VFS_CDP_PORT) || 9222),
   };
 }

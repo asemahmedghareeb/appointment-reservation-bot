@@ -45,24 +45,36 @@ export function getRedisOptions(urlOverride?: string): { url: string; options: R
   return { url: redisUrl, options };
 }
 
+function attachDefaultErrorHandler(client: Redis): Redis {
+  client.on('error', (err) => {
+    // Prevent unhandled error event from terminating the Node process
+  });
+  return client;
+}
+
 export function createRedisLockClient(urlOverride?: string): Redis {
   const { url, options } = getRedisOptions(urlOverride);
-  return new Redis(url, {
-    ...options,
-    maxRetriesPerRequest: 3,
-  });
+  return attachDefaultErrorHandler(
+    new Redis(url, {
+      ...options,
+      maxRetriesPerRequest: 3,
+    }),
+  );
 }
 
 export function createRedisQueueClient(urlOverride?: string): Redis {
   const { url, options } = getRedisOptions(urlOverride);
-  return new Redis(url, {
-    ...options,
-    // BullMQ requires maxRetriesPerRequest to be null
-    maxRetriesPerRequest: null,
-  });
+  return attachDefaultErrorHandler(
+    new Redis(url, {
+      ...options,
+      // BullMQ requires maxRetriesPerRequest to be null
+      maxRetriesPerRequest: null,
+    }),
+  );
 }
 
 export function createRedisClient(urlOverride?: string): Redis {
   const { url, options } = getRedisOptions(urlOverride);
-  return new Redis(url, options);
+  return attachDefaultErrorHandler(new Redis(url, options));
 }
+

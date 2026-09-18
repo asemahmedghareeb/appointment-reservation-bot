@@ -50,10 +50,18 @@ export class LiveVisualMonitorService {
         this.config.redisUrl,
         getRedisOptions(this.config.redisUrl),
       );
+      this.subscriberClient.on('error', (err) => {
+        workerLogger.warn(`[LiveVisualMonitor Redis Subscriber] ${err.message}`);
+      });
+
       this.publisherClient = new Redis(
         this.config.redisUrl,
         getRedisOptions(this.config.redisUrl),
       );
+      this.publisherClient.on('error', (err) => {
+        workerLogger.warn(`[LiveVisualMonitor Redis Publisher] ${err.message}`);
+      });
+
 
       // Hook sessionManager lifecycle: if a viewer was waiting for a session, start screencast immediately!
       this.sessionManager.onSessionCreated = (caseId, session) => {

@@ -1,10 +1,10 @@
-import { Worker, type Job } from 'bullmq';
+import { Worker, Queue, type Job } from 'bullmq';
 import { Redis } from 'ioredis';
 import {
   BookingCaseStatus,
   StateActorType,
 } from '@visaflow/database';
-import type { OrchestratorJobEnvelope } from '@visaflow/shared-types';
+import { OrchestratorJobType, type OrchestratorJobEnvelope } from '@visaflow/shared-types';
 import type { WorkerConfig } from '../config/worker.config.js';
 import { getRedisOptions } from '../config/worker.config.js';
 import type { WorkerRepository } from '../repositories/worker.repository.js';
@@ -17,6 +17,8 @@ import { QUEUE_NAMES } from './queue.constants.js';
 export class SessionResumeWorker {
   private worker?: Worker;
   private redisClient?: Redis;
+  private queueRedisClient?: Redis;
+  private availabilityQueue?: Queue;
 
   constructor(
     private readonly config: WorkerConfig,
@@ -30,6 +32,16 @@ export class SessionResumeWorker {
     this.redisClient = new Redis(this.config.redisUrl, getRedisOptions(this.config.redisUrl));
     this.redisClient.on('error', (err) => {
       console.warn('[SessionResumeWorker Redis]', err.message);
+    });
+
+    this.queueRedisClient = new Redis(this.config.redisUrl, getRedisOptions(this.config.redisUrl));
+    this.queueRedisClient.on('error', (err) => {
+      console.warn('[SessionResumeWorker Queue Redis]', err.message);
+    });
+
+    this.availabilityQueue = new Queue(QUEUE_NAMES.AVAILABILITY_CHECK, {
+      connection: this.queueRedisClient,
+      prefix: this.config.queuePrefix,
     });
 
     this.worker = new Worker(
@@ -76,7 +88,7 @@ export class SessionResumeWorker {
       return { outcome: 'SESSION_OWNER_MISMATCH' };
     }
 
-    const { context } = await this.contextLoader.loadContextAndApplicants(
+    const { context, applicants } = await this.contextLoader.loadContextAndApplicants(
       caseId,
       envelope.correlationId,
     );
@@ -99,6 +111,23 @@ export class SessionResumeWorker {
         actorId: this.config.workerId,
         reason: 'Human verification completed; resuming automation session',
       });
+
+      if (this.availabilityQueue) {
+        await this.availabilityQueue.add(
+          OrchestratorJobType.AVAILABILITY_CHECK,
+          {
+            caseId,
+            correlationId: envelope.correlationId,
+            cycleId: envelope.cycleId,
+            idempotencyKey: `${caseId}:avail:${Date.now()}`,
+            jobType: OrchestratorJobType.AVAILABILITY_CHECK,
+            payload: {
+              applicantCount: applicants.length || 1,
+            },
+          },
+          { attempts: 3, backoff: { type: 'exponential', delay: 2000 } },
+        );
+      }
 
       return { outcome: 'RESUMED' };
     }
@@ -144,6 +173,8 @@ export class SessionResumeWorker {
 
   async close(): Promise<void> {
     await this.worker?.close();
+    await this.availabilityQueue?.close();
     await this.redisClient?.quit();
+    await this.queueRedisClient?.quit();
   }
 }

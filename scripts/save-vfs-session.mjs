@@ -48,11 +48,11 @@ async function main() {
     ignoreDefaultArgs: ['--enable-automation'],
     args: [
       '--disable-blink-features=AutomationControlled',
-      '--no-sandbox',
       '--disable-infobars',
       '--hide-crash-restore-bubble',
       '--disable-session-crashed-bubble',
       '--no-default-browser-check',
+      '--start-maximized',
     ],
     ...(proxy ? { proxy } : {}),
   });
@@ -62,6 +62,15 @@ async function main() {
       const proto = Object.getPrototypeOf(navigator);
       if (proto && 'webdriver' in proto) {
         Object.defineProperty(proto, 'webdriver', { get: () => false, configurable: true });
+      }
+    } catch {}
+
+    try {
+      if (!('chrome' in window)) {
+        window.chrome = {};
+      }
+      if (!window.chrome.runtime) {
+        window.chrome.runtime = {};
       }
     } catch {}
   });

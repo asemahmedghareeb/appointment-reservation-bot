@@ -35,6 +35,14 @@ export class LiveMonitorService implements OnModuleInit, OnModuleDestroy {
       this.subscriberClient = createRedisClient();
       this.publisherClient = createRedisClient();
 
+      this.subscriberClient.on('error', (err) => {
+        this.logger.warn(`Redis subscriber error: ${err.message}`);
+      });
+
+      this.publisherClient.on('error', (err) => {
+        this.logger.warn(`Redis publisher error: ${err.message}`);
+      });
+
       this.subscriberClient.on('pmessage', (_pattern, channel, message) => {
         try {
           const caseId = channel.slice('visaflow:live-frames:'.length);
@@ -66,14 +74,6 @@ export class LiveMonitorService implements OnModuleInit, OnModuleDestroy {
       });
 
       await this.subscriberClient.psubscribe('visaflow:live-frames:*');
-
-      this.subscriberClient.on('error', (err) => {
-        this.logger.warn(`Redis subscriber error: ${err.message}`);
-      });
-
-      this.publisherClient.on('error', (err) => {
-        this.logger.warn(`Redis publisher error: ${err.message}`);
-      });
 
       this.logger.log('LiveMonitorService initialized and listening for visual frames.');
     } catch (err: any) {

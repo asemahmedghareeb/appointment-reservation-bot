@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node --env-file=../../.env --import tsx src/main.ts",
+    "dev": "node --env-file=../../.env --watch --import tsx src/main.ts",
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "start": "node dist/main.js",

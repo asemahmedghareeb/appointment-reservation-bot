@@ -22,6 +22,9 @@ export interface WorkerConfig {
   vfsProxyUsername?: string;
   vfsProxyPassword?: string;
   vfsProxyBypass?: string;
+  vfsUseCdp?: boolean | undefined;
+  vfsCdpPort?: number | undefined;
+  vfsCdpUrl?: string | undefined;
 }
 
 export function loadWorkerConfig(): WorkerConfig {
@@ -48,14 +51,14 @@ export function loadWorkerConfig(): WorkerConfig {
     liveVisualMonitorMaxWidth: Number(process.env.LIVE_VISUAL_MONITOR_MAX_WIDTH) || 960,
     liveVisualMonitorMaxHeight: Number(process.env.LIVE_VISUAL_MONITOR_MAX_HEIGHT) || 600,
     liveVisualMonitorEveryNthFrame: Number(process.env.LIVE_VISUAL_MONITOR_EVERY_NTH_FRAME) || 2,
+    vfsUseCdp: process.env.VFS_USE_CDP !== 'false',
+    vfsCdpPort: Number(process.env.VFS_CDP_PORT) || 9222,
+    vfsCdpUrl: process.env.VFS_CDP_URL,
     ...(process.env.VFS_PROXY_SERVER ? { vfsProxyServer: process.env.VFS_PROXY_SERVER } : {}),
     ...(process.env.VFS_PROXY_USERNAME ? { vfsProxyUsername: process.env.VFS_PROXY_USERNAME } : {}),
     ...(process.env.VFS_PROXY_PASSWORD ? { vfsProxyPassword: process.env.VFS_PROXY_PASSWORD } : {}),
     ...(process.env.VFS_PROXY_BYPASS ? { vfsProxyBypass: process.env.VFS_PROXY_BYPASS } : {}),
   };
-
-
-
 }
 
 export function getRedisOptions(redisUrl: string): RedisOptions {

@@ -112,6 +112,6 @@ export class OrchestratorRepository {
       });
 
       return updated;
-    });
+    }, { maxWait: 15000, timeout: 30000 });
   }
 }

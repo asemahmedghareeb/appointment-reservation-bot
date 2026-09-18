@@ -124,6 +124,26 @@ export class VfsProviderAdapter implements VisaProviderAdapter {
       }
     } catch {}
 
+    // Auto-fill credentials if account credentials are provided
+    if (context.providerAccountId) {
+      try {
+        const credentials = await this.credentialsProvider.getCredentials(context.providerAccountId);
+        if (credentials?.email && credentials?.password) {
+          logSafeBrowserEvent('Auto-filling login credentials', { caseId: context.caseId });
+          const emailInput = session.page.locator('input[type="email"], input[formcontrolname="username"], #email, input[id*="mat-input"]').first();
+          const passInput = session.page.locator('input[type="password"], input[formcontrolname="password"], #password').first();
+          if (await emailInput.isVisible({ timeout: 5000 }).catch(() => false)) {
+            await emailInput.fill(credentials.email).catch(() => {});
+          }
+          if (await passInput.isVisible({ timeout: 2000 }).catch(() => false)) {
+            await passInput.fill(credentials.password).catch(() => {});
+          }
+        }
+      } catch (err: any) {
+        logSafeBrowserEvent('Could not auto-fill credentials', { caseId: context.caseId, error: err.message });
+      }
+    }
+
     return session;
   }
 
@@ -170,18 +190,48 @@ export class VfsProviderAdapter implements VisaProviderAdapter {
 
     const isTestServer = routeProfile.entryUrl.includes('127.0.0.1') || routeProfile.entryUrl.includes('localhost');
 
-    // 2. In live automation: strictly enforce manual login boundary (never auto-type credentials)
+    // 2. In live automation: wait for manual login in the opened browser
     if (!isTestServer) {
       let session = existingSession;
       if (!session) {
         session = await this.prepareLoginSession(context);
       }
 
+      // Check if already authenticated
+      if (await this.isSessionAuthenticated(context.caseId)) {
+        logSafeBrowserEvent('Manual login already verified! Continuing.', { caseId: context.caseId });
+        return {
+          kind: 'SUCCESS',
+          data: {
+            authenticatedAt: new Date().toISOString(),
+            sessionId: session.caseId,
+          },
+        };
+      }
+
+      // Auto-detect: allow operator up to 120s to complete login in the opened browser
+      logSafeBrowserEvent('Waiting for operator to complete login in the opened browser window...', { caseId: context.caseId });
+      const maxWaitMs = 120_000;
+      const startTime = Date.now();
+      while (Date.now() - startTime < maxWaitMs) {
+        await new Promise((resolve) => setTimeout(resolve, 2500));
+        if (await this.isSessionAuthenticated(context.caseId)) {
+          logSafeBrowserEvent('Manual login detected successfully! Continuing automation.', { caseId: context.caseId });
+          return {
+            kind: 'SUCCESS',
+            data: {
+              authenticatedAt: new Date().toISOString(),
+              sessionId: session.caseId,
+            },
+          };
+        }
+      }
+
       return {
         kind: 'HUMAN_ACTION_REQUIRED',
         action: HumanActionType.MANUAL_VERIFICATION,
         resumeToStatus: BookingCaseStatus.AUTHENTICATING,
-        safeMessage: 'تسجيل الدخول مطلوب. يرجى تسجيل الدخول إلى حساب VFS أولاً قبل تشغيل البوت.',
+        safeMessage: 'تسجيل الدخول مطلوب. يرجى تسجيل الدخول إلى حساب VFS أولاً ثم النقر على استكمال الحجز.',
         checkpoint: {
           pageType: VfsPageType.LOGIN,
           currentPath: session ? session.getSafeCurrentPath() : '/login',
@@ -655,6 +705,19 @@ export class VfsProviderAdapter implements VisaProviderAdapter {
     }
 
     try {
+      // If already on dashboard or authenticated, do not reload (reloading can invalidate session)
+      const isAuth = await this.isSessionAuthenticated(context.caseId);
+      if (isAuth) {
+        logSafeBrowserEvent('Adapter: session already authenticated on resume, skipping reload', { caseId: context.caseId });
+        return {
+          kind: 'SUCCESS',
+          data: {
+            resumed: true,
+            resumedAt: new Date().toISOString(),
+          },
+        };
+      }
+
       await session.page.reload({ waitUntil: 'domcontentloaded', timeout: 10000 }).catch(() => {});
 
       // Re-check challenge on the page
