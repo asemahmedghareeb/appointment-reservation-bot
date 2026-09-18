@@ -28,7 +28,7 @@ export class SlotSelectionPage extends BaseVfsPage {
     this.log('Checking slot availability on selection page', { requestedApplicants, centre });
 
     const currentUrl = this.page.url();
-    const isCalendarPage = currentUrl.includes('book-appointment') || currentUrl.includes('calendar') || currentUrl.includes('appointment-slot');
+    const isCalendarPage = currentUrl.includes('book-appointment') || currentUrl.includes('calendar') || currentUrl.includes('appointment-slot') || currentUrl.includes('slot-selection') || currentUrl.includes('applicants');
     const hasCalendar = await this.page.locator('full-calendar, .fc, mat-calendar, .mat-calendar, .calendar, .appointment-calendar, app-slot-picker, .date-picker').first().isVisible({ timeout: 2000 }).catch(() => false);
 
     const noSlotLocator = this.page.locator(VFS_SELECTORS.availability.noSlotNotice);
@@ -114,9 +114,28 @@ export class SlotSelectionPage extends BaseVfsPage {
   async selectSlot(slot: SlotCandidate): Promise<boolean> {
     this.log('Selecting slot candidate and proceeding to payment', { date: slot.date, time: slot.time });
 
-    // Step 3: Book Appointment (Calendar & Time Slot)
+    // Step 3: Slot Selection / Book Appointment
+    // 1. Check for standard / fixture slot items
+    const slotLocator = this.page.locator(
+      `[data-slot-date="${slot.date}"], :text("${slot.date}"), input[value="${slot.date}"], ${VFS_SELECTORS.slotSelection.slotItem}`
+    ).first();
+
+    if (await slotLocator.isVisible({ timeout: 1500 }).catch(() => false)) {
+      await this.waitAndClick(slotLocator).catch(() => {});
+      const radio = slotLocator.locator('input[type="radio"]').first();
+      if (await radio.isVisible().catch(() => false)) {
+        await radio.check().catch(() => {});
+      }
+      const continueBtn = this.page.locator(
+        `${VFS_SELECTORS.slotSelection.continueButton}, button[type="submit"]:has-text("Continue"), #continue-slot`
+      ).first();
+      if (await continueBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+        await this.waitAndClick(continueBtn).catch(() => {});
+      }
+    }
+
+    // 2. FullCalendar on Live VFS site
     if (this.page.url().includes('book-appointment')) {
-      // 1. If appointment type radio exists (e.g. Choose a slot), ensure it is selected
       const typeRadio = this.page.locator('#mat-radio-0, input[type="radio"]').first();
       if (await typeRadio.isVisible({ timeout: 1500 }).catch(() => false)) {
         await typeRadio.click({ force: true }).catch(() => {});

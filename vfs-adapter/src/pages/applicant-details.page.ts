@@ -163,9 +163,20 @@ export class ApplicantDetailsPage extends BaseVfsPage {
         if (btn) btn.click();
       }).catch(() => {});
 
-      // Wait for "Your Details Summary" screen and proceed
-      await this.page.waitForTimeout(2000);
-      await this.handleSummaryPage(applicants.length);
+      // If form has a submit / Continue button (like in synthetic fixtures or legacy forms)
+      const continueSubmit = this.page.locator('#continue-applicants, button[type="submit"]:has-text("Continue")').first();
+      if (await continueSubmit.isVisible({ timeout: 1000 }).catch(() => false)) {
+        await continueSubmit.click({ force: true }).catch(() => {});
+      }
+
+      // Check if "Your Details Summary" screen appeared and proceed
+      const isSummary = await this.page.locator(
+        'h1:has-text("Your Details Summary"), button:has-text("Add another applicant")'
+      ).first().isVisible({ timeout: 1500 }).catch(() => false);
+
+      if (isSummary) {
+        await this.handleSummaryPage(applicants.length);
+      }
     }
   }
 
@@ -180,12 +191,12 @@ export class ApplicantDetailsPage extends BaseVfsPage {
       this.log(`Detected ${trashCount} applicants on summary but expected ${expectedCount}. Removing excess applicant...`);
       const lastTrash = getTrashButtons().last();
       await lastTrash.click({ force: true }).catch(() => {});
-      await this.page.waitForTimeout(800);
+      await this.page.waitForTimeout(600);
 
       const confirmBtn = this.page.locator('button:has-text("Yes, Remove"), button:has-text("Remove")').first();
-      if (await confirmBtn.isVisible({ timeout: 4000 }).catch(() => false)) {
+      if (await confirmBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
         await confirmBtn.click({ force: true }).catch(() => {});
-        await this.page.waitForTimeout(2000);
+        await this.page.waitForTimeout(1000);
       }
       trashCount = await getTrashButtons().count();
     }
@@ -194,16 +205,17 @@ export class ApplicantDetailsPage extends BaseVfsPage {
     this.log('Locating Continue button on Your Details Summary...');
     const summaryContinue = this.page.locator('button.btn-brand-orange:has-text("Continue"), button:has-text("Continue")').first();
     try {
-      await summaryContinue.waitFor({ state: 'visible', timeout: 12000 });
-      this.log('Clicking Continue on Your Details Summary to advance to Book Appointment...');
-      await summaryContinue.scrollIntoViewIfNeeded().catch(() => {});
-      await summaryContinue.click({ force: true }).catch(() => {});
-      await this.page.evaluate(() => {
-        const btn = Array.from(document.querySelectorAll('button')).find(b => b.innerText.trim() === 'Continue');
-        if (btn) btn.click();
-      }).catch(() => {});
-      await this.page.waitForURL((url) => url.pathname.includes('book-appointment'), { timeout: 12000 }).catch(() => {});
-      await this.page.waitForTimeout(2000);
+      if (await summaryContinue.isVisible({ timeout: 3000 }).catch(() => false)) {
+        this.log('Clicking Continue on Your Details Summary to advance to Book Appointment...');
+        await summaryContinue.scrollIntoViewIfNeeded().catch(() => {});
+        await summaryContinue.click({ force: true }).catch(() => {});
+        await this.page.evaluate(() => {
+          const btn = Array.from(document.querySelectorAll('button')).find(b => b.innerText.trim() === 'Continue');
+          if (btn) btn.click();
+        }).catch(() => {});
+        await this.page.waitForURL((url) => url.pathname.includes('book-appointment') || url.pathname.includes('slot-selection'), { timeout: 6000 }).catch(() => {});
+        await this.page.waitForTimeout(1000);
+      }
     } catch (err: any) {
       this.log('Continue button handling completed or timed out', { message: err.message });
     }

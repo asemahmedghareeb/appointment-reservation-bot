@@ -26,8 +26,8 @@ export function formatVfsDate(dateStr: string): string {
 
 export function mapToVfsApplicant(applicant: ProviderApplicantInput): VfsFormattedApplicant {
   return {
-    firstName: applicant.firstName.trim(),
-    lastName: applicant.lastName.trim(),
+    firstName: applicant.firstName.trim().toUpperCase(),
+    lastName: applicant.lastName.trim().toUpperCase(),
     gender: applicant.gender.toUpperCase(),
     dateOfBirth: formatVfsDate(applicant.dateOfBirth),
     nationality: applicant.nationality.trim().toUpperCase(),

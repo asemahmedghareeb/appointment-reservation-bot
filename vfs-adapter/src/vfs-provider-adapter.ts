@@ -27,7 +27,7 @@ import { LoginPage } from './pages/login.page.js';
 import { BookingHomePage } from './pages/booking-home.page.js';
 import { AppointmentDetailsPage } from './pages/appointment-details.page.js';
 import { ApplicantDetailsPage } from './pages/applicant-details.page.js';
-import { SlotSelectionPage } from './pages/slot-selection.page.js';
+import { SlotSelectionPage, popupBrowserWindow } from './pages/slot-selection.page.js';
 import { PaymentPage } from './pages/payment.page.js';
 import { ConfirmationPage } from './pages/confirmation.page.js';
 import { mapRouteToSelection } from './mapping/vfs-route.mapper.js';
@@ -489,15 +489,25 @@ export class VfsProviderAdapter implements VisaProviderAdapter {
       await apptPage.selectRouteCriteria(criteria);
 
       // In VFS portals where Applicant Details (Your Details) follows immediately after criteria selection:
-      const isApplicantStep = await session.page.locator(
-        'input[formcontrolname*="passport" i], input[placeholder*="first name" i], h1:has-text("Your Details"), h2:has-text("Your Details"), div:has-text("Your Details")'
-      ).first().isVisible({ timeout: 4000 }).catch(() => false);
+      const isSummary = await session.page.locator(
+        'h1:has-text("Your Details Summary"), button:has-text("Add another applicant")'
+      ).first().isVisible({ timeout: 1500 }).catch(() => false);
 
-      if (isApplicantStep && context.applicants && context.applicants.length > 0) {
-        logSafeBrowserEvent('Route criteria advanced to Your Details. Auto-filling applicant details...', { caseId: context.caseId });
+      if (isSummary) {
+        logSafeBrowserEvent('Route criteria advanced to Your Details Summary. Handling summary to proceed...', { caseId: context.caseId });
         const applicantPage = new ApplicantDetailsPage(session.page);
-        await applicantPage.addApplicants(context.applicants);
-        await session.page.waitForTimeout(2000);
+        await applicantPage.handleSummaryPage(context.applicants?.length || 1);
+      } else {
+        const hasApplicantInputs = await session.page.locator(
+          '#dateOfBirth, #mat-input-3, input[formcontrolname*="firstName" i], input[formcontrolname*="passport" i]'
+        ).first().isVisible({ timeout: 2000 }).catch(() => false);
+
+        if (hasApplicantInputs && context.applicants && context.applicants.length > 0) {
+          logSafeBrowserEvent('Route criteria advanced to Your Details form. Auto-filling applicant details...', { caseId: context.caseId });
+          const applicantPage = new ApplicantDetailsPage(session.page);
+          await applicantPage.addApplicants(context.applicants);
+          await session.page.waitForTimeout(2000);
+        }
       }
 
       return {
@@ -572,16 +582,26 @@ export class VfsProviderAdapter implements VisaProviderAdapter {
         };
       }
 
-      // Ensure that if still on Your Details page, fill applicants to reach the Calendar
-      const isApplicantStep = await session.page.locator(
-        'input[formcontrolname*="passport" i], input[placeholder*="first name" i], h1:has-text("Your Details"), h2:has-text("Your Details"), div:has-text("Your Details")'
-      ).first().isVisible({ timeout: 2500 }).catch(() => false);
+      // Ensure that if on Your Details Summary or Form, advance to reach the Calendar
+      const isSummary = await session.page.locator(
+        'h1:has-text("Your Details Summary"), button:has-text("Add another applicant")'
+      ).first().isVisible({ timeout: 1500 }).catch(() => false);
 
-      if (isApplicantStep && context.applicants && context.applicants.length > 0) {
-        logSafeBrowserEvent('CheckAvailability: detected Your Details page, auto-filling applicants to reach calendar...', { caseId: context.caseId });
+      if (isSummary) {
+        logSafeBrowserEvent('CheckAvailability: detected Your Details Summary. Handling summary to reach calendar...', { caseId: context.caseId });
         const applicantPage = new ApplicantDetailsPage(session.page);
-        await applicantPage.addApplicants(context.applicants);
-        await session.page.waitForTimeout(2000);
+        await applicantPage.handleSummaryPage(context.applicantCount || context.applicants?.length || 1);
+      } else {
+        const hasApplicantInputs = await session.page.locator(
+          '#dateOfBirth, #mat-input-3, input[formcontrolname*="firstName" i], input[formcontrolname*="passport" i]'
+        ).first().isVisible({ timeout: 1500 }).catch(() => false);
+
+        if (hasApplicantInputs && context.applicants && context.applicants.length > 0) {
+          logSafeBrowserEvent('CheckAvailability: detected Your Details form, auto-filling applicants to reach calendar...', { caseId: context.caseId });
+          const applicantPage = new ApplicantDetailsPage(session.page);
+          await applicantPage.addApplicants(context.applicants);
+          await session.page.waitForTimeout(2000);
+        }
       }
 
       // If Save button is visible on your-details, click it to advance
@@ -597,24 +617,11 @@ export class VfsProviderAdapter implements VisaProviderAdapter {
         await session.page.waitForTimeout(3000);
       }
 
-      // If on Your Details Summary, click Continue to advance to calendar
-      const summaryContinueBtn = session.page.locator('button:has-text("Continue"), button.btn-brand-orange:has-text("Continue")').first();
-      if (session.page.url().includes('your-details') && (await summaryContinueBtn.isVisible({ timeout: 2000 }).catch(() => false))) {
-        logSafeBrowserEvent('CheckAvailability: Detected Your Details Summary. Clicking Continue to advance to calendar...', { caseId: context.caseId });
-        await summaryContinueBtn.click({ force: true }).catch(() => {});
-        await session.page.evaluate(() => {
-          const btn = Array.from(document.querySelectorAll('button')).find(b => b.innerText.trim() === 'Continue');
-          if (btn) btn.click();
-        }).catch(() => {});
-        await session.page.waitForURL((url) => url.pathname.includes('book-appointment'), { timeout: 8000 }).catch(() => {});
-        await session.page.waitForTimeout(2000);
-      }
-
-      // Dismiss session timeout reminder modal if visible
+      // Dismiss session timeout reminder modal if visible (Stay Connected / OK)
       try {
-        const okBtn = session.page.locator('button:has-text("Ok"), button:has-text("OK")').first();
-        if (await okBtn.isVisible({ timeout: 1000 }).catch(() => false)) {
-          await okBtn.click({ force: true }).catch(() => {});
+        const stayBtn = session.page.locator('button:has-text("Stay Connected"), button:has-text("Ok"), button:has-text("OK")').first();
+        if (await stayBtn.isVisible({ timeout: 1000 }).catch(() => false)) {
+          await stayBtn.click({ force: true }).catch(() => {});
         }
       } catch {}
 
@@ -798,21 +805,47 @@ export class VfsProviderAdapter implements VisaProviderAdapter {
         };
       }
 
+      // If still on Services page, click Continue to advance to Review
+      if (session.page.url().includes('services')) {
+        const contBtn = session.page.locator('button.btn-brand-orange:has-text("Continue"), button:has-text("Continue")').first();
+        if (await contBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+          await contBtn.click({ force: true }).catch(() => {});
+          await session.page.waitForTimeout(3000);
+        }
+      }
+
+      // If on Review page, accept terms and click Proceed to Payment
+      if (session.page.url().includes('review')) {
+        const terms = session.page.locator('mat-checkbox, input[type="checkbox"]').first();
+        if (await terms.isVisible({ timeout: 2000 }).catch(() => false)) {
+          await terms.click({ force: true }).catch(() => {});
+          await session.page.waitForTimeout(500);
+        }
+        const payBtn = session.page.locator('button:has-text("Proceed to Payment"), button.btn-brand-orange:has-text("Proceed"), button:has-text("Pay")').first();
+        if (await payBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+          await payBtn.click({ force: true }).catch(() => {});
+          await session.page.waitForTimeout(4000);
+        }
+      }
+
       if (session.page.url().includes('payment')) {
         await session.page.reload({ waitUntil: 'domcontentloaded', timeout: 5000 }).catch(() => {});
       }
 
       const paymentPage = new PaymentPage(session.page);
       const paymentInfo = await paymentPage.getPaymentDetails();
+      const isPaymentUrl = /payment|checkout|payfort|fee/i.test(session.page.url());
 
+      if (paymentInfo.isPaymentPage || isPaymentUrl) {
+        logSafeBrowserEvent('Adapter: Payment gateway reached! Popping up browser window to user.', { caseId: context.caseId });
+        popupBrowserWindow(session.page);
 
-      if (paymentInfo.isPaymentPage) {
         const parsedAmount = paymentInfo.amount ? Number(paymentInfo.amount) : undefined;
         return {
           kind: 'SUCCESS',
           data: {
             paymentState: 'REQUIRED',
-            currency: paymentInfo.currency ?? 'EUR',
+            currency: paymentInfo.currency ?? 'EGP',
             ...(parsedAmount !== undefined ? { amount: parsedAmount } : {}),
             ...(paymentInfo.externalReference ? { reference: paymentInfo.externalReference } : {}),
           },
